@@ -12,7 +12,7 @@ need sign-off or depend on pending upstream changes.
   where one exists (skill against the evidence-blind `uniform_joint`) and responsive to evidence (`sens`). The
   benchmark was built because existing probability outputs of LLM-based "System One" classifiers carry no
   guarantees about how answers relate to each other.
-- **Creators / funding.** Created by Mark Marosi. Funding: TODO (to be stated before release).
+- **Creators / funding.** Created by Mark Marosi. No external funding.
 
 ## Composition
 
@@ -106,7 +106,8 @@ need sign-off or depend on pending upstream changes.
     **BETA**: both judges detect only 0.64/0.66 of planted query-negation flips in Chinese
     (`logs/stress_judge_controls_judge{,2}.json` upstream).
 - **Timeframe.** Built September 2026. realcoh sources span their datasets' own collection periods.
-- **Ethical review.** No human subjects were recruited. TODO: state any institutional review, if applicable.
+- **Ethical review.** No human subjects were involved; no ethical review was required. Real-text sources are public
+  datasets used under their licences (see NOTICE.md), with e-mail addresses masked.
 
 ## Preprocessing / cleaning / labelling
 

@@ -1,6 +1,6 @@
 # BookieBench
 
-<p align="center"><img src="docs/assets/bookiebench.gif" alt="Pixel-art explainer: a model prices P(red)=70% and P(not red)=50%, a bookie sells it both bets and locks in a sure profit (a Dutch book); a coherent model pricing 60/40 leaves the bookie nothing" width="800"></p>
+<p align="center"><img src="docs/assets/bookiebench.gif" alt="Pixel-art racetrack: a robot prices RED 70% and NOT RED 50% (sum 120%); the bookie sells it both tickets and wins 0.20 whichever ball is drawn (a Dutch book); a coherent robot prices 60/40, exactly 3/5, and the bookie gets nothing; then the four checks: coherence, calibration, skill, sensitivity" width="800"></p>
 
 **Can a model's probabilities be trusted?** BookieBench asks a model for many linked probabilities about one
 situation: marginals, conjunctions, negations, conditionals, the same question after more evidence, and the same

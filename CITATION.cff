@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: "Marosi"
     given-names: "Mark"
-version: "1.0.1"
+version: "1.0.2"
 date-released: "2026-09-27"
 license: Apache-2.0
 repository-code: "https://github.com/Mapika/bookiebench"

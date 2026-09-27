@@ -2,6 +2,12 @@
 
 All notable changes to BookieBench are listed here. Versions follow semantic versioning.
 
+## [1.0.2] - 2026-09-27
+
+### Changed
+- New README banner: a detailed racetrack pixel-art animation (`docs/assets/bookiebench.gif`, about 35 s,
+  made by `tools/make_banner.py`; Pillow + numpy).
+
 ## [1.0.1] - 2026-09-27
 
 ### Added

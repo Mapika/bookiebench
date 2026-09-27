@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bookiebench"
+version = "0.1.0.dev0"
+description = "BookieBench: can a model's probabilities be trusted? Coherence, calibration and exact-posterior skill on text-rendered worlds and real inputs."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [{ name = "Mark Marosi" }]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",       # Dutch-book LP / MILP (HiGHS)
+]
+
+[project.optional-dependencies]
+# realcoh rebuild of the ids_only sources from a local Hugging Face cache
+realcoh = ["pyarrow>=14", "pandas>=2", "huggingface_hub>=0.23"]
+# logit / decider / julia runners (GPU recommended, CPU works for tiny smoke runs)
+models = ["torch>=2.3", "transformers>=4.45"]
+# OpenAI-compatible API runner
+api = ["aiohttp>=3.9"]
+# stress pack regeneration (long-context filler, LLM paraphrase/translation + judge)
+stress = ["pyarrow>=14", "transformers>=4.45", "huggingface_hub>=0.23", "vllm"]
+test = ["pytest>=8"]
+dev = ["pytest>=8", "threadpoolctl>=3"]
+
+[project.scripts]
+bookiebench = "bookiebench.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["bookiebench*"]
+
+[tool.setuptools.package-data]
+"bookiebench.sims.packs.stress" = ["common_words.txt.gz"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

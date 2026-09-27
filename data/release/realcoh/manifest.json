@@ -1,0 +1,261 @@
+{
+ "dropped": {
+  "chat": "ShareGPT: no licence, jailbreak prompts (R7)",
+  "job_ads": "fineweb-edu has almost no real job postings (R10)",
+  "mailing_list": "PII (names, emails) in public mailing-list archives (R6)",
+  "recipes": "even the tightened filter mostly finds nutrition pages with a stray recipe (R10)"
+ },
+ "n": 200,
+ "rebuild": "python -m honest.realcoh.build_v2 rebuild --release data/release/realcoh --out <dir>",
+ "revisions": {
+  "AlucardV/medical-specialty-classification": "48dc0101e5533ee9aa6e079f60494d0d5a9f1422",
+  "ChanceFocus/flare-headlines": "d8a188f96866372227e1ef9f6fd6230040d3fe75",
+  "DigitalLearningGmbH/MATH-lighteval": "0530c78699ea5e8eb5530600900e1f328b48acad",
+  "HuggingFaceFW/fineweb-edu": "87f09149ef4734204d70ed1d046ddc9ca3f2b8f9",
+  "Salesforce/APIGen-MT-5k": "abc4a517d67c541f85f6470cbd8fd3186b36830e",
+  "TIGER-Lab/MMLU-Pro": "b189ec765aa7ed75c8acfea42df31fdae71f97be",
+  "abisee/cnn_dailymail": "96df5e686bee6baa90b8bee7c28b81fa3fa6223d",
+  "bolu61/loghub_2": "4a98d3eb30522891b340609d17fa34709a1d44d2",
+  "coastalcph/lex_glue": "c23fdff1a6bf74e0e1a71cb86f1e781d37da888c",
+  "coastalcph/multi_eurlex": "6278c7994cd86297e823becad7fdf897faaea174",
+  "copenlu/scientific-exaggeration-detection": "544352335e47b53a991ed4157a396453fdb25d49",
+  "facebook/belebele": "7899cdfa4e1e0d733fd77c848e2c273cb1d32be2",
+  "google/code_x_glue_cc_defect_detection": "69bd48c03223c2104342acd9a807caf61ac3efb8",
+  "gretelai/symptom_to_diagnosis": "722cfb0e11f8ae37339c7f573b5e10429b94df49",
+  "logfit-project/BGL": "09a26419fc644a2f96e96d18080397f0e212c8a6",
+  "logfit-project/Thunderbird": "6b4a6401591e85a534c401a49355553631133bd0",
+  "logfit-project/hdfsv1-grouped-labeled": "ef9f7a1d3ebb763dbbd7c264d703df008b114443",
+  "nkazi/SciEntsBank": "abaadf77345c5d68b73b630131a8ae164a45f3ab",
+  "princeton-nlp/SWE-bench_Verified": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+  "tdiggelm/climate_fever": "ae61ccb9320a78109a246414139ff3a2bd677b8b"
+ },
+ "seed": 0,
+ "sources": {
+  "belebele_es": {
+   "dataset": "facebook/belebele (spa_Latn)",
+   "in_decider_train": false,
+   "license": "cc-by-sa-4.0",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "1cb0f2d74b40847e6f83ee45c98ecee04f1add8fc825b24936325311545e1df0"
+  },
+  "bgl_logs": {
+   "dataset": "logfit-project/BGL",
+   "in_decider_train": true,
+   "license": "LogHub licence (research use), re-published",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "bc65fa02e893da55b62f558e0f9baf734dcc7f05d936f9417e94732801b04a14"
+  },
+  "climate": {
+   "dataset": "tdiggelm/climate_fever",
+   "in_decider_train": true,
+   "license": "not declared",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "c810430d3f1f3a6ce9ad6fa257acb6c29f43476c1f9e97d452b5c781f6216fcc"
+  },
+  "code_defects": {
+   "dataset": "google/code_x_glue_cc_defect_detection",
+   "in_decider_train": true,
+   "license": "c-uda (CodeXGLUE); code LGPL-2.1+ (FFmpeg) / GPL-2.0 (QEMU)",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "99005dc14eebb9d04dee195ff4c721d10ea288eea1effe9a5e0f1e644780a3f3"
+  },
+  "eurlex_fr": {
+   "dataset": "coastalcph/multi_eurlex (fr)",
+   "in_decider_train": false,
+   "license": "cc-by-sa-4.0",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "cd92f75f6da71723ab125ca29ecb233d4d6060416d8f45c77f28c01931556ad5"
+  },
+  "finance_news": {
+   "dataset": "abisee/cnn_dailymail",
+   "in_decider_train": false,
+   "license": "apache-2.0 (dataset scripts); article text copyright CNN / Daily Mail",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "f96de7dfa306af7552c1db1dc472951b9e8c92dd2a59828e1c74f2a9ddf6d36e"
+  },
+  "forecast_news": {
+   "dataset": "abisee/cnn_dailymail",
+   "in_decider_train": false,
+   "license": "apache-2.0 (dataset scripts); article text copyright CNN / Daily Mail",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "d460f498caa4efb2e685a69c80bd9a5e7b8dcf619e2ffd7468b3b5e57c297464"
+  },
+  "gold_news": {
+   "dataset": "ChanceFocus/flare-headlines",
+   "in_decider_train": true,
+   "license": "not declared (FLARE / gold-news headlines)",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "94f973dd6e77ec6d284eae54d71b71a5d0c68a860a222bc6bba594783ab50c24"
+  },
+  "hdfs_logs": {
+   "dataset": "logfit-project/hdfsv1-grouped-labeled",
+   "in_decider_train": true,
+   "license": "LogHub licence (research use), re-published",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "ea8af4b8f0202c3a6f93f4b62b3d0341143b924e1ab72135c054af0ba360edbb"
+  },
+  "ledgar": {
+   "dataset": "coastalcph/lex_glue (ledgar)",
+   "in_decider_train": true,
+   "license": "cc-by-4.0",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "9cc3be0c262b8492f843a4ecae136babd47e06ef0dc3625b2311560dcfb8143b"
+  },
+  "math_problems": {
+   "dataset": "DigitalLearningGmbH/MATH-lighteval",
+   "in_decider_train": false,
+   "license": "mit",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "5d5a9ff9fe4bfd85350d644173baeb9da06fafe158e6583eb88d59fe6e4f3a3b"
+  },
+  "med_ru": {
+   "dataset": "AlucardV/medical-specialty-classification",
+   "in_decider_train": true,
+   "license": "not declared",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "039b43685d87590894929b5932903079413eecb34fb4c48fc7d30ab750f21207"
+  },
+  "mmlu_pro": {
+   "dataset": "TIGER-Lab/MMLU-Pro",
+   "in_decider_train": false,
+   "license": "mit",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "5de5a97bb88c02fbc9816037b859d693bd3e8e20a793fc00867e5168c442d160"
+  },
+  "news": {
+   "dataset": "abisee/cnn_dailymail",
+   "in_decider_train": false,
+   "license": "apache-2.0 (dataset scripts); article text copyright CNN / Daily Mail",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "f4baca4b4d78c4b57ebe74efad801b7252aa4c8575222bfdce2f52bd8da091b9"
+  },
+  "reviews": {
+   "dataset": "HuggingFaceFW/fineweb-edu",
+   "in_decider_train": false,
+   "license": "odc-by-1.0 (dataset); page text copyright of each site",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "9b34239cdcbd9732067964211c9ccff3460672691cb1085f35fd48f9d5902b91"
+  },
+  "sci_claims": {
+   "dataset": "copenlu/scientific-exaggeration-detection",
+   "in_decider_train": false,
+   "license": "gpl-3.0",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "5b557d0ce8328008cd6b84795e45363d4c9879b71b2a7f1b6505c98bca1f0025"
+  },
+  "sports": {
+   "dataset": "abisee/cnn_dailymail",
+   "in_decider_train": false,
+   "license": "apache-2.0 (dataset scripts); article text copyright CNN / Daily Mail",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "8a80f87a87ab6743b38110847bda0e2cc8c0e0f03a3a74963ee2c5c12d1b579f"
+  },
+  "ssh_logs": {
+   "dataset": "bolu61/loghub_2",
+   "in_decider_train": false,
+   "license": "LogHub licence (research use); IPs, hosts and users masked",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "f6064bafe31ba8210f1ff7f1f71f467836239ac02450c32525284584a9b188f3"
+  },
+  "stackexchange": {
+   "dataset": "HuggingFaceFW/fineweb-edu",
+   "in_decider_train": false,
+   "license": "odc-by-1.0 (dataset); page text copyright of each site",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "3e24d1e4b3312e17d2150f7f138b3ab31712b08bf779546c8e417ab32c7490a0"
+  },
+  "student_answers": {
+   "dataset": "nkazi/SciEntsBank",
+   "in_decider_train": true,
+   "license": "cc-by-4.0",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "411b527974fd69f4b48a7dab44fcbabae91203cd9d1305d79c5032f9e06f7cb1"
+  },
+  "support_chat": {
+   "dataset": "Salesforce/APIGen-MT-5k",
+   "in_decider_train": false,
+   "license": "cc-by-nc-4.0",
+   "likely_pretraining": false,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "00c0bf1ab029f6672d58a04a49688bd52d21733497233fe1d9703f48d7d6fc31"
+  },
+  "swe_issues": {
+   "dataset": "princeton-nlp/SWE-bench_Verified",
+   "in_decider_train": false,
+   "license": "mit (dataset); issue text by GitHub users",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "bd9d1cdaec5dd18d133ef0113aa2478ce411c445b505c8e6e19edfbdadd315be"
+  },
+  "symptoms": {
+   "dataset": "gretelai/symptom_to_diagnosis",
+   "in_decider_train": true,
+   "license": "apache-2.0",
+   "likely_pretraining": false,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "a35d99509b700a44f570686a2eab29633cae2e96b2d7d1f07e7fe8687642ceed"
+  },
+  "thunderbird_logs": {
+   "dataset": "logfit-project/Thunderbird",
+   "in_decider_train": false,
+   "license": "LogHub licence (research use), re-published",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "ids_only",
+   "sha256": "cbf989021c0f79579e04202dd8acf2829430ad6c82f5c5fc185472d1324048f6"
+  },
+  "tos": {
+   "dataset": "coastalcph/lex_glue (unfair_tos)",
+   "in_decider_train": true,
+   "license": "cc-by-4.0",
+   "likely_pretraining": true,
+   "n": 200,
+   "release_mode": "keep",
+   "sha256": "a6de901e575227e41fcaf2172041bba23fcfc1555cd5ab93c78b4882fe91a701"
+  }
+ },
+ "version": 2
+}

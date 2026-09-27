@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+results/
+data/hidden/
+data/release/train/
+data/release/.train_keys/
+data/realcoh_full/
+*.partial

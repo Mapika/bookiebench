@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use BookieBench, please cite it as below."
+title: "BookieBench: can a model's probabilities be trusted?"
+type: software
+authors:
+  - family-names: "Marosi"
+    given-names: "Mark"
+version: "0.1.0.dev0"
+license: Apache-2.0
+# TODO(release): repository-code / url / doi once published
+keywords:
+  - benchmark
+  - calibration
+  - coherence
+  - Dutch book
+  - probabilistic reasoning
+  - language models

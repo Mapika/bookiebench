@@ -1,8 +1,7 @@
-# Datasheet for BookieBench (v0.1, pre-release)
+# Datasheet for BookieBench (v1.0)
 
 This datasheet follows Gebru et al., "Datasheets for Datasets" (2018/2021). Numbers are read from
-`data/release/sims_manifest.json` and `data/release/realcoh/manifest.json` in this repository. Items marked TODO
-need sign-off or depend on pending upstream changes.
+`data/release/sims_manifest.json` and `data/release/realcoh/manifest.json` in this repository.
 
 ## Motivation
 
@@ -134,7 +133,8 @@ references and hashes are.
 
 ## Distribution
 
-- **How.** TODO: not published yet. The candidate plan is a code repository plus a dataset hub. The data files in git
+- **How.** The code and data are at https://github.com/Mapika/bookiebench, and the data is also at
+  https://huggingface.co/datasets/Mapika/bookiebench (Parquet, one config per file group). The data files in git
   total about 415 MB: 113 MB of eval/dev and realcoh, and 300 MB of stress text. Recipe-built stress (long_*,
   scaling) would add about 1.3 GB, which users build locally.
 - **Licence.** Code is Apache-2.0. Generated synthetic data (simulators, our stress text) is CC-BY-4.0
@@ -149,6 +149,6 @@ references and hashes are.
   tests.
 - **Leaderboard editions.** Each edition uses a fresh secret seed, a published commitment hash, and the secret
   revealed at retirement (README "Hidden test set").
-- **Errata.** TODO: an issue tracker once published. Known issues are in README "Known limitations".
+- **Errata.** GitHub issues at https://github.com/Mapika/bookiebench/issues. Known issues are in README "Known limitations".
 - **Contributions.** New families or packs must provide exact answers, pass `bookiebench.sims.core.validate`, score
   kl = 0 and dutch = 0 under the oracle, and ship their own tests.

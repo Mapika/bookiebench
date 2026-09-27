@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bookiebench"
-version = "0.1.0.dev0"
+version = "1.0.1"
 description = "BookieBench: can a model's probabilities be trusted? Coherence, calibration and exact-posterior skill on text-rendered worlds and real inputs."
 readme = "README.md"
 license = { text = "Apache-2.0 (code); CC-BY-4.0 (generated data, see LICENSE-DATA)" }

@@ -1,8 +1,19 @@
 # Changelog
 
-All notable changes to BookieBench are listed here. Versions follow semantic versioning once published.
+All notable changes to BookieBench are listed here. Versions follow semantic versioning.
 
-## [Unreleased] - 0.1.0.dev0 (local only, not published)
+## [1.0.1] - 2026-09-27
+
+### Added
+- A pixel-art README banner (`docs/assets/bookiebench.gif`, made by `tools/make_banner.py`).
+
+### Fixed
+- Removed leftover pre-release notes from README, DATASHEET and CITATION.cff. Added links to the repository and
+  the Hugging Face dataset. Set the package version to match the release tag.
+
+## [1.0.0] - 2026-09-27
+
+First public release.
 
 ### Added
 - Project name **BookieBench** (package, CLI and PyPI name `bookiebench`). It was developed internally as

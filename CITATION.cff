@@ -5,9 +5,11 @@ type: software
 authors:
   - family-names: "Marosi"
     given-names: "Mark"
-version: "0.1.0.dev0"
+version: "1.0.1"
+date-released: "2026-09-27"
 license: Apache-2.0
-# TODO(release): repository-code / url / doi once published
+repository-code: "https://github.com/Mapika/bookiebench"
+url: "https://huggingface.co/datasets/Mapika/bookiebench"
 keywords:
   - benchmark
   - calibration

@@ -1,6 +1,6 @@
 # BookieBench
 
-_Developed internally under the name "HonestBench"._
+<p align="center"><img src="docs/assets/bookiebench.gif" alt="Pixel-art explainer: a model prices P(red)=70% and P(not red)=50%, a bookie sells it both bets and locks in a sure profit (a Dutch book); a coherent model pricing 60/40 leaves the bookie nothing" width="800"></p>
 
 **Can a model's probabilities be trusted?** BookieBench asks a model for many linked probabilities about one
 situation: marginals, conjunctions, negations, conditionals, the same question after more evidence, and the same
@@ -19,8 +19,8 @@ question with the options reordered. It then checks four things:
 Coherence is cheap: `uniform_joint` has `dutch = 0`. So BookieBench reports coherence only together with skill (and
 `dutch_inf` only for models with positive skill). "Coherent but uninformative" is never a win.
 
-> **Status: pre-release, local only.** This repository has not been published. Open items are listed under
-> [TODO before release](#todo-before-release).
+**Links:** code at https://github.com/Mapika/bookiebench, data at https://huggingface.co/datasets/Mapika/bookiebench
+(the same files as `data/release/`), and model results in [LEADERBOARD.md](LEADERBOARD.md).
 
 ## What is in the box
 
@@ -250,8 +250,8 @@ Protocol:
   option-position excess mass, dedupe and fallback counts, and the exact-posterior calibration check. It gates on
   them and exits non-zero on a failure. The manifest records every rate.
 
-  > **TODO(audits):** the heavier review audits (the label and wording scans, the per-family text re-derivation
-  > solvers) live in the upstream review suite and are not shipped. Run them on each edition before opening it.
+  The heavier review audits (the label and wording scans, and the per-family solvers that re-derive answers from
+  the text) are not shipped. Maintainers run them on each edition before it opens.
 - **Commit, then reveal.** `hidden_manifest.json` stores `sha256("bookiebench-hidden:" + edition + ":" + secret)`,
   never the seed. Publish the commitment when an edition opens. Publish the secret when it is retired, so anyone
   can regenerate the edition and check it.
@@ -345,10 +345,6 @@ tests/                  CPU test suite
 ```
 
 Verify the data with `python tools/checksums.py` (or `cd data && sha256sum -c CHECKSUMS.sha256`).
-
-## TODO before release
-
-- [ ] Decide on hosting for the data (about 415 MB of data files in git now, including 300 MB of stress text; consider LFS or a dataset hub) (name check: `docs/NAME_CHECK.md`).
 
 ## Licence
 

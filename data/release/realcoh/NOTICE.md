@@ -4,6 +4,8 @@
 `python -m honest.realcoh.build_v2 rebuild --release <this dir> --out <dir>` (needs the datasets in the local HF cache,
 at the revisions pinned in manifest.json `revisions`: `huggingface-cli download <repo> --repo-type dataset --revision <rev>`).
 
+E-mail addresses in all state texts are masked as `[EMAIL]`, in every source (`rebuild` applies the same masking).
+
 | source | dataset | licence | release mode | in decider training | likely in pretraining |
 |---|---|---|---|---|---|
 | belebele_es | facebook/belebele (spa_Latn) | cc-by-sa-4.0 | keep | False | True |

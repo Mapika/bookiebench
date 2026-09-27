@@ -5,10 +5,7 @@ sync that removes it; delete the entry in the same commit as that sync.
 """
 import pytest
 
-PENDING = {
-    "tests/test_realcoh_v2.py::test_release_has_no_emails":
-        "data/release/realcoh resync pending (upstream LEDGAR e-mail masking)",
-}
+PENDING: dict = {}
 
 
 def pytest_collection_modifyitems(config, items):

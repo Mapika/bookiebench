@@ -95,11 +95,7 @@ def main(argv=None) -> int:
                 if f.is_file():
                     shutil.copy2(f, dst / d / f.name)
         shutil.copy2(rel / "sims_manifest.json", dst / "sims_manifest.json")
-        stress = rel / "stress" / "manifest.json"
-        if stress.exists() and '"judge2"' in stress.read_text():
-            print("stress manifest has judge2: copy data/release/stress by hand (see data/release/stress/TODO.md)")
-        else:
-            print("stress manifest has no judge2 field yet: stress not copied")
+        print("stress is not copied here: run tools/make_stress_recipe.py --src <upstream>/data/release/stress")
     left = [str(p.relative_to(ROOT)) for p in pkg.rglob("*.py") if re.search(r"/mnt/|/home/", p.read_text())]
     if left:
         print("WARNING: machine-specific paths remain in:", *left, sep="\n  ")

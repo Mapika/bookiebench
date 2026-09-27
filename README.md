@@ -283,6 +283,14 @@ These come from the internal exactness, fairness, shortcut and release audits of
   private training mixture, and many of their states occur verbatim in its training half. Examples: student_answers
   187/200, symptoms 165, med_ru 164, climate 159, gold_news 147. Report decider results on these sources separately.
   The leaderboard splits realcoh by this flag.
+- **Personal data in real text.** realcoh is real text, and some of it names real people and organisations. Examples
+  are news about public figures, contracts, issue threads and system logs. Mitigations:
+  - E-mail addresses are masked as `[EMAIL]` in every realcoh source. `rebuild-realcoh` applies the same masking.
+  - ssh_logs masks IPs, hosts and users.
+  - Sources with personal data (mailing_list) were dropped.
+
+  The e-mail addresses that appear in the synthetic `format_email` stress transform use the reserved
+  `example.net` domain.
 - **Pretraining contamination.** 23 of 25 realcoh sources are flagged `likely_pretraining` (all except symptoms and
   support_chat). Gold accuracy on them may be inflated. The coherence metrics need no gold and are much less affected.
 - **Judge-based filtering of the LLM stress items.** Paraphrase and translation items are kept only if they pass
@@ -332,8 +340,6 @@ Verify the data with `python tools/checksums.py` (or `cd data && sha256sum -c CH
 
 ## TODO before release
 
-- [ ] Resync `data/release/realcoh` after the upstream e-mail masking (the realcoh code is already synced:
-      `rebuild` now masks e-mails, so ids_only rebuilds match only after the data sync).
 - [ ] Fill `LEADERBOARD.md` from the upstream release leaderboard.
 - [ ] Decide on hosting for the data (about 415 MB of data files in git now, including 300 MB of stress text; consider LFS or a dataset hub) (name check: `docs/NAME_CHECK.md`).
 

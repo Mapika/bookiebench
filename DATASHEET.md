@@ -70,6 +70,9 @@ need sign-off or depend on pending upstream changes.
   - Simulator data is synthetic, with invented names.
   - realcoh contains real text: news about real public figures (the forecast_news prelude carries a content note),
     system logs (ssh_logs is masked for IPs, hosts and users), legal and medical text.
+  - E-mail addresses are masked as `[EMAIL]` in every realcoh source, including ids_only rebuilds (the masking
+    lives in `build_v2`). This affected ledgar (SEC contract notice addresses) and swe_issues.
+  - Synthetic e-mail addresses in the `format_email` stress transform use the reserved `example.net` domain.
   - Sources with personal data (mailing_list) or no licence plus jailbreak content (chat) were dropped.
 - **Sub-populations.** Not applicable to the simulators. realcoh covers several languages: Spanish (belebele_es),
   French (eurlex_fr), Russian (med_ru) and English.

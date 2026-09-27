@@ -6,7 +6,7 @@
   "recipes": "even the tightened filter mostly finds nutrition pages with a stray recipe (R10)"
  },
  "n": 200,
- "rebuild": "python -m honest.realcoh.build_v2 rebuild --release data/release/realcoh --out <dir>",
+ "rebuild": "python -m honest.realcoh.build_v2 rebuild --release /mnt/data/mark/projects/retransformer/data/release/realcoh --out <dir>",
  "revisions": {
   "AlucardV/medical-specialty-classification": "48dc0101e5533ee9aa6e079f60494d0d5a9f1422",
   "ChanceFocus/flare-headlines": "d8a188f96866372227e1ef9f6fd6230040d3fe75",
@@ -119,7 +119,7 @@
    "likely_pretraining": true,
    "n": 200,
    "release_mode": "keep",
-   "sha256": "9cc3be0c262b8492f843a4ecae136babd47e06ef0dc3625b2311560dcfb8143b"
+   "sha256": "a589a21fd1e4192a4564a1637261f8b66aad351827edf2cc733be39a30783f11"
   },
   "math_problems": {
    "dataset": "DigitalLearningGmbH/MATH-lighteval",
@@ -227,7 +227,7 @@
    "likely_pretraining": true,
    "n": 200,
    "release_mode": "ids_only",
-   "sha256": "bd9d1cdaec5dd18d133ef0113aa2478ce411c445b505c8e6e19edfbdadd315be"
+   "sha256": "5d82daa5db6b852656caabe6c25561dc70d8e5afe00992eb5d8a620d264f0388"
   },
   "symptoms": {
    "dataset": "gretelai/symptom_to_diagnosis",
@@ -257,5 +257,6 @@
    "sha256": "a6de901e575227e41fcaf2172041bba23fcfc1555cd5ab93c78b4882fe91a701"
   }
  },
+ "text_masking": "e-mail addresses -> [EMAIL] in every state text (all sources)",
  "version": 2
 }

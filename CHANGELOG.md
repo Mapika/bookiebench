@@ -50,9 +50,9 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
 - Metrics: `ref:prior` / `skill_prior` (the best of uniform_joint, label_prior and template_uj per family, with a
   uniform fallback for new_mechanics and procedural families), a label-keyed `ref:indep_joint`, the coherence gate
   skill ≥ 0.05 and sens ≥ 0.05, and group tables from the manifest.
-- realcoh code: e-mail masking (`[EMAIL]`). The realcoh data resync is pending, and
-  `test_release_has_no_emails` is marked xfail (strict) until then (`tests/conftest.py`).
+- realcoh: e-mail masking (`[EMAIL]`) in every source, both code and data. Two files changed:
+  - `ledgar.jsonl`, which is kept in full text;
+  - `swe_issues.jsonl`, which is ids-only and has its hash updated.
 
-### Pending before 0.1.0
-- The realcoh data resync (LEDGAR e-mail masking).
+  `rebuild-realcoh` of ledgar and swe_issues verifies against the new hashes.
 - The leaderboard.

@@ -5,14 +5,22 @@
 All code in `bookiebench/`, `scripts/`, `tools/` and `tests/` is licensed under the Apache License 2.0
 (see `LICENSE`). Copyright 2026 Mark Marosi.
 
-## Simulator data (`data/release/{test,test_prior,heldout,val,mechanics,programs,tables}`, and anything generated)
+## Generated synthetic data: CC-BY-4.0
+
+**Scope:** `data/release/{test,test_prior,heldout,val,mechanics,programs,tables}`, the stress text we generated under
+`data/release/stress/`, and anything the generators produce. It is licensed under the Creative Commons Attribution 4.0
+International licence (see `LICENSE-DATA`). Copyright 2026 Mark Marosi.
+
+**Exceptions** (not covered by CC-BY-4.0):
+- the realcoh sources, which keep their own licences (below);
+- third-party filler text in the long-context stress transforms. That text is not shipped, and users rebuild it
+  from the original datasets.
+
 
 These files are produced by the generators in this repository from a seed. They contain no third-party text.
 People, places, diseases, patterns and organisations in them are invented, or drawn from the generator's own lexicon
 (`bookiebench/sims/lexicon.py`).
 
-**TODO(licence): choose the licence for the generated data.** Options: Apache-2.0, the same as the code, or
-CC-BY-4.0. This needs sign-off.
 
 ## realcoh (`data/release/realcoh/`)
 

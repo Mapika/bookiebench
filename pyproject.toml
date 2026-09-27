@@ -7,7 +7,7 @@ name = "bookiebench"
 version = "0.1.0.dev0"
 description = "BookieBench: can a model's probabilities be trusted? Coherence, calibration and exact-posterior skill on text-rendered worlds and real inputs."
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = { text = "Apache-2.0 (code); CC-BY-4.0 (generated data, see LICENSE-DATA)" }
 requires-python = ">=3.10"
 authors = [{ name = "Mark Marosi" }]
 dependencies = [

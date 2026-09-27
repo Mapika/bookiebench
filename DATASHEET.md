@@ -125,7 +125,8 @@ references and hashes are.
 
 - **How.** TODO: not published yet. The candidate plan is a code repository plus a dataset hub. The data is about
   113 MB now; stress would add about 1.7 GB, mostly long-context.
-- **Licence.** Code is Apache-2.0. Generated data: TODO (see NOTICE.md). realcoh text keeps each source's licence
+- **Licence.** Code is Apache-2.0. Generated synthetic data (simulators, our stress text) is CC-BY-4.0
+  (`LICENSE-DATA`). realcoh text keeps each source's licence
   (`NOTICE.md`, `data/release/realcoh/NOTICE.md`). `ids_only` sources are rebuilt by users under the upstream terms.
 - **Export controls / regulatory restrictions.** None known.
 

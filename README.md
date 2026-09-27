@@ -298,5 +298,8 @@ Verify the data with `python tools/checksums.py` (or `cd data && sha256sum -c CH
 
 ## Licence
 
-Code is Apache-2.0 ([LICENSE](LICENSE)). Data licences differ per source; see [NOTICE.md](NOTICE.md) and
-`data/release/realcoh/NOTICE.md`. Citation: [CITATION.cff](CITATION.cff).
+- Code is Apache-2.0 ([LICENSE](LICENSE)).
+- The generated synthetic data (simulator splits and the stress text we generated) is CC-BY-4.0
+  ([LICENSE-DATA](LICENSE-DATA)).
+- realcoh sources keep their own licences ([NOTICE.md](NOTICE.md), `data/release/realcoh/NOTICE.md`).
+- The long-context stress filler is not shipped; it is rebuilt from the original datasets. Citation: [CITATION.cff](CITATION.cff).

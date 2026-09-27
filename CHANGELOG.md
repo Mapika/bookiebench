@@ -23,6 +23,10 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
 - Tests: the upstream suite (minus trained-heads tests) plus `tests/test_release_package.py`, which covers shipped
   data integrity, oracle exactness on every shipped file, the CLI pipeline and the hidden-test generator.
 
+### Licensing
+- The code is Apache-2.0. The generated synthetic data is CC-BY-4.0 (`LICENSE-DATA`). realcoh sources keep their own
+  licences (NOTICE.md).
+
 ### Changed (relative to upstream)
 - Machine-specific defaults replaced by environment variables: `HF_HOME` (defaults to `~/.cache/huggingface`),
   `DECIDER_SRC`, `BOOKIEBENCH_DECIDER_PUBLIC` / `_PRIVATE`. `HONEST_METRICS_OWN_EXACT` was renamed to
@@ -33,4 +37,4 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
   group tables), the release plan and `sims_manifest.json` (group re-split: `in_family_v2`, and `new_mechanics`
   with 9 families held out of train).
 - The stress pack data, after the judge-2 manifest.
-- The leaderboard and the licence for generated data.
+- The leaderboard.

@@ -6,7 +6,7 @@
   "recipes": "even the tightened filter mostly finds nutrition pages with a stray recipe (R10)"
  },
  "n": 200,
- "rebuild": "python -m honest.realcoh.build_v2 rebuild --release /mnt/data/mark/projects/retransformer/data/release/realcoh --out <dir>",
+ "rebuild": "bookiebench rebuild-realcoh --release data/release/realcoh --out <dir>",
  "revisions": {
   "AlucardV/medical-specialty-classification": "48dc0101e5533ee9aa6e079f60494d0d5a9f1422",
   "ChanceFocus/flare-headlines": "d8a188f96866372227e1ef9f6fd6230040d3fe75",

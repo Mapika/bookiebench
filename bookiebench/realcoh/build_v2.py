@@ -137,7 +137,7 @@ def write_release(release_dir, built):
     from .sources import PINNED
     man["revisions"] = {PROVENANCE[k]["dataset"].split(" (")[0]: PINNED[PROVENANCE[k]["dataset"].split(" (")[0]]
                         for k in man["sources"]}
-    man["rebuild"] = "python -m bookiebench.realcoh.build_v2 rebuild --release " + release_dir + " --out <dir>"
+    man["rebuild"] = "python -m bookiebench.realcoh.build_v2 rebuild --release data/release/realcoh --out <dir>"
     with open(mpath, "w") as f:
         json.dump(man, f, indent=1, sort_keys=True)
     with open(os.path.join(release_dir, "NOTICE.md"), "w") as f:

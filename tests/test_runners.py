@@ -165,3 +165,25 @@ def test_missing_answers_are_omitted(tmp_path):
     st = core.run_file(Half(), FIX, tmp_path)
     lines = [json.loads(l) for l in open(st["out"])]
     assert any(len(l["answers"]) < 9 for l in lines if l["variant"] == "base")
+
+
+def test_temper_joint_record_stays_coherent(insts):
+    """A record with a joint is tempered on the joint; final-step answers are recomputed from it (so they agree with
+    the tempered joint), while a record without a joint is tempered per answer."""
+    import numpy as np
+    from bookiebench.metrics.exact import exact_answer, is_final, joint_at
+    from bookiebench.metrics.refs import with_joint
+    from bookiebench.runners.temper import rescale, temper_record
+    inst = insts[0]
+    J = joint_at(inst)
+    ans = {q["id"]: list(exact_answer(inst, q)) for q in inst["queries"]}
+    rec = {"id": inst["id"], "variant": "base", "answers": ans, "joint": J.tolist()}
+    out, jt = temper_record(rec, 2.0, inst)
+    jt = np.asarray(jt)
+    assert jt.sum() == pytest.approx(1) and np.allclose(jt.ravel(), rescale(J.ravel().tolist(), 2.0))
+    fake = with_joint(inst, jt)
+    for q in inst["queries"]:
+        if is_final(inst, q):
+            assert out[q["id"]] == pytest.approx(list(exact_answer(fake, q)), abs=1e-9)
+    plain, none = temper_record({k: v for k, v in rec.items() if k != "joint"}, 2.0, inst)
+    assert none is None and plain == {k: rescale(v, 2.0) for k, v in ans.items()}

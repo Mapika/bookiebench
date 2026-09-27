@@ -217,7 +217,11 @@ informative (`dutch_inf`). The rows were rerun after the gate change and are unc
 `coh_valid` / `dutch_inf`.
 
 The oracle's `acc` and `logscore` are the ceiling that sampled gold allows: gold is a draw from the exact posterior,
-so even perfect probabilities are "wrong" about a third of the time. Model results are in [LEADERBOARD.md](LEADERBOARD.md).
+so even perfect probabilities are "wrong" about a third of the time.
+
+Model results are in [LEADERBOARD.md](LEADERBOARD.md). It scores every model on the same shared subset of the
+shipped files, reports tempered (`-Tfit`, one fitted temperature per model, never fitted on eval data) and raw rows,
+and gives per-group tables, realcoh split by decider-training overlap, and paired stress deltas.
 
 ## Hidden test set (leaderboard)
 
@@ -344,7 +348,6 @@ Verify the data with `python tools/checksums.py` (or `cd data && sha256sum -c CH
 
 ## TODO before release
 
-- [ ] Fill `LEADERBOARD.md` from the upstream release leaderboard.
 - [ ] Decide on hosting for the data (about 415 MB of data files in git now, including 300 MB of stress text; consider LFS or a dataset hub) (name check: `docs/NAME_CHECK.md`).
 
 ## Licence

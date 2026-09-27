@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PKG_DIRS = ["sims", "metrics", "realcoh"]
 RUNNERS = ["__init__.py", "core.py", "logit_runner.py", "decider_runner.py", "julia_runner.py", "api_runner.py",
-           "temper.py", "leaderboard.py", "release_subset.py"]
+           "temper.py", "leaderboard.py", "release_subset.py", "calib_subset.py", "finalize_release.py"]
 LOCAL_ONLY = {"bookiebench/cli.py", "bookiebench/runners/baselines.py"}
 SKIP_TESTS = {"test_heads.py", "conftest.py"}          # trained-heads tests; our local conftest.py
 DATA_DIRS = ["test", "test_prior", "heldout", "val", "mechanics/dev", "programs/dev", "tables/dev"]

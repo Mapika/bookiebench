@@ -27,6 +27,17 @@ from bookiebench.metrics.report import run
 ROOT = Path(__file__).resolve().parents[2]
 REL = ROOT / "results" / "release"
 SUB = REL / "_data" / "sub"
+STRESS_REL = ROOT / "data" / "release" / "stress"   # the release stress files: LLM transforms keep only judge-clean items
+STRESS_LABEL = {"lang_zh": "lang_zh (BETA: judges miss ~1/3 of zh negation flips)"}
+NO_STRESS = {"heads-hybrid-2b", "heads-decider-product"}   # filled in only if their stress runs exist
+
+
+def _stress_release_ids(t):
+    """Instance ids of the release stress files for transform t (None when the release has no such transform)."""
+    d = STRESS_REL / t
+    if not d.is_dir():
+        return None
+    return {json.loads(l)["id"] for f in sorted(d.glob("*.jsonl")) for l in open(f) if l.strip()}
 TRAIN = ROOT / "data" / "release" / "train"
 ORDER = ["new_mechanics", "surface_transfer", "in_family_v2", "in_family", "prior"]
 COLS = ["n", "skill", "skill_prior", "kl_marg", "kl_bin", "sens", "acc", "ece", "dutch_inf", "dutch@0.01", "answered_frac"]
@@ -41,8 +52,22 @@ XREF_NOTE = ("xref:tfidf_* = bag-of-words level (review/final_shortcuts/results_
              "new_mechanics and surface_transfer are the transfer headlines.")
 
 
-def _report(d):
+def _report(d, reuse=True):
+    """report.run on one model dir; with reuse, an existing report.json that carries the gates marker and is newer
+    than every prediction file of the dir and every subset data file is loaded instead of recomputed."""
+    rp = Path(d) / "report.json"
+    if reuse and rp.exists():
+        newest = max([f.stat().st_mtime for f in Path(d).rglob("*.jsonl")] +
+                     [f.stat().st_mtime for f in SUB.rglob("*.jsonl")], default=0)
+        if rp.stat().st_mtime > newest:
+            r = json.load(open(rp))
+            if "gates" in r and "by_group" in r and "info" in r:
+                return r
     return run(d, SUB, write=True, train=TRAIN)
+
+
+def _report_fresh(d):
+    return _report(d, reuse=False)
 
 
 def _is_api(m):
@@ -69,12 +94,13 @@ def main(argv=None):
     ap.add_argument("--models", nargs="*", default=None)
     ap.add_argument("--jobs", type=int, default=8)
     ap.add_argument("--out", default=str(REL / "LEADERBOARD.md"))
+    ap.add_argument("--recompute", action="store_true", help="ignore up-to-date report.json files")
     a = ap.parse_args(argv)
     shutil.copy(ROOT / "data" / "release" / "sims_manifest.json", SUB / "sims_manifest.json")
     models = a.models or sorted(p.name for p in REL.iterdir() if p.is_dir() and not p.name.startswith("_")
                                 and any(p.glob("*.jsonl")))
     with Pool(max(1, min(a.jobs, len(models)))) as pool:
-        reps = dict(zip(models, pool.map(_report, [str(REL / m) for m in models])))
+        reps = dict(zip(models, pool.map(_report_fresh if a.recompute else _report, [str(REL / m) for m in models])))
     splits = sorted({s for r in reps.values() for s in r.get("by_split", {})})
     xdirs = [d for d in XREFS if d.is_dir()]
     refs, notes = reference_reports(splits, SUB, TRAIN, extra=xdirs)
@@ -94,14 +120,18 @@ def main(argv=None):
           "**Tempering protocol.** Every model gets one temperature factor t, fitted with `bookiebench.runners.temper` "
           "(minimum mean KL) on its own predictions for 300 train instances per train family "
           "(`results/release/_data/calib`, never eval data; new_mechanics families have no train data, so their t comes "
-          "from the other families). `-Tfit` rows are the headline; raw rows follow.", ""]
+          "from the other families). Models that emit a joint (the heads) are tempered on the joint, p ∝ joint^(1/t), and "
+          "every final-step answer is recomputed from the tempered joint with the scorer's query semantics, so a coherent "
+          "model stays coherent; models without a joint (LLMs, decider, Julia-1) are tempered per answer. `-Tfit` rows "
+          "are the headline; raw rows follow.", "",
+          "Not included in v1: Jev (no API access), DeepSeek V4.1 Flash (planned; `bookiebench.runners.api_runner`).", ""]
     temp = REL / "tempering.json"
     if temp.exists():
-        md += ["| model | fitted factor t | absolute T | calibration KL raw → fitted |", "|---|---|---|---|"]
+        md += ["| model | fitted factor t | absolute T | calibration KL raw → fitted | rule |", "|---|---|---|---|---|"]
         for m, v in json.load(open(temp)).items():
             T = v.get("temperature")
             md.append(f"| {m} | {v['t_rel']:.3f} | {T:.3f} |" if isinstance(T, float) else f"| {m} | {v['t_rel']:.3f} | t × model default |")
-            md[-1] += f" {v['kl_cal_run']:.4f} → {v['kl_cal_fitted']:.4f} |"
+            md[-1] += f" {v['kl_cal_run']:.4f} → {v['kl_cal_fitted']:.4f} | {v.get('rule', 'per-answer')} |"
         md.append("")
     for g in ORDER:
         ref_rows = [(r["model"], r["by_group"][g]) for r in refs if g in r.get("by_group", {})
@@ -143,8 +173,20 @@ def main(argv=None):
            "context tokens).", ""]
     sm = [m for m in full if m.endswith("-Tfit") and not _is_api(m)]
     md += ["| transform | " + " | ".join(sm) + " |", "|---" * (len(sm) + 1) + "|"]
+    sman = json.load(open(STRESS_REL / "manifest.json"))
+    excluded = sman.get("excluded_v1", {})
+    J["stress_excluded_v1"] = excluded
+    J["stress_clean"] = {}
     for t in sorted(p.name for p in (SUB / "stress").iterdir() if p.is_dir()):
+        if t in excluded:
+            continue
         sinst = load_instances(SUB / "stress" / t)
+        keep = _stress_release_ids(t)
+        if keep is None:
+            continue
+        n0 = len(sinst)
+        sinst = {i: x for i, x in sinst.items() if i in keep}
+        J["stress_clean"][t] = {"subset": n0, "judge_clean": len(sinst)}
         J["stress"][t] = {}
         cells = {}
         for m in full:
@@ -162,8 +204,21 @@ def main(argv=None):
             J["stress"][t][m] = {"n": len(si), "delta": dd, "stressed": A, "unstressed": B}
             f = lambda x: "–" if x is None else f"{x:+.3f}"
             cells[m] = f"{f(dd['skill'])} / {f(dd['acc'])} / {f(dd['dutch@0.01'])}"
-        md.append(f"| {t} | " + " | ".join(cells.get(m, "–") for m in sm) + " |")
+        md.append(f"| {STRESS_LABEL.get(t, t)} | " + " | ".join(cells.get(m, "–") for m in sm) + " |")
     md.append("")
+    dropped = {t: c for t, c in J["stress_clean"].items() if c["judge_clean"] < c["subset"]}
+    if dropped:
+        md.append("_Judge-clean ids only: stressed instances whose source failed the LLM judge are not in the release stress "
+                  "files (data/release/stress) and are left out of the deltas: " +
+                  ", ".join(f"{t} {c['judge_clean']}/{c['subset']}" for t, c in sorted(dropped.items())) + "._")
+        md.append("")
+    if excluded:
+        md.append("_Excluded from v1 (data/release/stress/manifest.json `excluded_v1`), not shown: " + ", ".join(sorted(excluded)) + "._")
+        md.append("")
+    nost = [m for m in sm if m.removesuffix("-Tfit") in NO_STRESS and not any(m in J["stress"][t] for t in J["stress"])]
+    if nost:
+        md.append("_" + ", ".join(nost) + ": not run on stress (added after the stress runs); their cells are –._")
+        md.append("")
     if partial:
         allinst = load_instances(SUB, set(splits) - {"realcoh2"})
         for pm in sorted(partial):

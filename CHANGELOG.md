@@ -19,7 +19,7 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
   `data/CHECKSUMS.sha256`.
 - `scripts/make_hidden_test.py`, the hidden leaderboard edition generator: secret seed from env, commitment hash,
   dedupe against train and public eval, audit gates.
-- README, DATASHEET, NOTICE, CITATION, and LEADERBOARD (placeholder).
+- README, DATASHEET, NOTICE, CITATION, and LEADERBOARD.
 - Tests: the upstream suite (minus trained-heads tests) plus `tests/test_release_package.py`, which covers shipped
   data integrity, oracle exactness on every shipped file, the CLI pipeline and the hidden-test generator.
 
@@ -31,6 +31,14 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
 - Machine-specific defaults replaced by environment variables: `HF_HOME` (defaults to `~/.cache/huggingface`),
   `DECIDER_SRC`, `BOOKIEBENCH_DECIDER_PUBLIC` / `_PRIVATE`. `HONEST_METRICS_OWN_EXACT` was renamed to
   `BOOKIEBENCH_METRICS_OWN_EXACT`.
+
+### Leaderboard
+- `LEADERBOARD.md` is the release run of `bookiebench.runners.leaderboard`, copied from upstream with its paths
+  annotated. It uses a uniform tempering protocol: one factor t per model, fitted on train-calibration predictions.
+  Joint-emitting models are tempered on the joint, so a coherent model stays coherent. All 2,617 numeric group-table cells and
+  all 15 tempering factors were checked against the upstream `leaderboard.json` / `tempering.json`.
+- Synced runners: `temper` (joint-tempering rule), `leaderboard` (`excluded_v1`, `stress_clean`), and the new
+  `finalize_release` (`--only`) and `calib_subset`, plus their unit test.
 
 ### Metrics gate (synced from upstream)
 - `coh_valid` now gates on skill_prior ≥ 0.05 (skill when no prior tables are given) and sens ≥ 0.05. Reports
@@ -59,4 +67,3 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
   - `swe_issues.jsonl`, which is ids-only and has its hash updated.
 
   `rebuild-realcoh` of ledgar and swe_issues verifies against the new hashes.
-- The leaderboard.

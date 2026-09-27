@@ -3,7 +3,7 @@
 
 Cross-model markdown tables: overall, one per manifest group (read at runtime from <data>/sims_manifest.json: in_family,
 in_family_v2, prior, surface_transfer, new_mechanics, realcoh, stress, ...), one per split, then informative coherence
-(only rows with coh_valid). Reports are read from each directory's report.json; a directory without one, a report
+(only rows with coh_valid: skill_prior >= 0.05, or skill where no prior was fitted, and sens >= 0.05). Reports are read from each directory's report.json; a directory without one, a report
 without the current gates / groups, or every directory with --recompute, is evaluated against --data.
 
 Reference rows are always included, computed internally on the same splits:
@@ -25,7 +25,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .core import METRIC_COLUMNS, SENS_GATE, SKILL_GATE, build_report, evaluate, markdown_table
+from .core import GATE_ON, METRIC_COLUMNS, SENS_GATE, SKILL_GATE, build_report, evaluate, markdown_table
 from .loading import default_train, load_groups, load_instances
 from .refs import fit_indep, ref_predictions
 from .report import _prior, run
@@ -37,7 +37,6 @@ COH_COLUMNS = ["n", "skill", "skill_prior", "sens", "dutch", "dutch_per_bet", "d
 def load_reports(dirs, data="data", recompute=False, train=None, skill_gate=SKILL_GATE,
                  sens_gate=SENS_GATE) -> list[dict]:
     reps = []
-    want_groups = load_groups(data) is not None
     for d in dirs:
         d = Path(d)
         if not d.is_dir():
@@ -47,8 +46,8 @@ def load_reports(dirs, data="data", recompute=False, train=None, skill_gate=SKIL
         if rj.exists() and not recompute:
             with open(rj) as f:
                 rep = json.load(f)
-            stale = (rep.get("gates") != {"skill": skill_gate, "sens": sens_gate}
-                     or (want_groups and "by_group" not in rep) or "skill_prior" not in rep.get("overall", {}))
+            stale = (rep.get("gates") != {"skill": skill_gate, "sens": sens_gate, "on": GATE_ON}
+                     or "by_group" not in rep or "skill_prior" not in rep.get("overall", {}))
             if stale:
                 rep = None
         if rep is None and any(d.glob("*.jsonl")):
@@ -124,8 +123,8 @@ def render(reps: list[dict], notes=()) -> str:
     sections = []
     groups = sorted({g for r in reps for g in r.get("by_group", {})})
     for g in groups:
-        sections.append((f"group: {g}", [(r.get("model", "?"), r["by_group"][g]) for r in reps
-                                         if g in r.get("by_group", {})]))
+        sections.append((f"group: {g}", [(r.get("model", "?"), (r.get("by_group") or {})[g]) for r in reps
+                                         if g in (r.get("by_group") or {})]))
     splits = sorted({s for r in reps for s in r.get("by_split", {})})
     for s in splits:
         sections.append((f"split: {s}", [(r.get("model", "?"), r["by_split"][s]) for r in reps
@@ -133,9 +132,13 @@ def render(reps: list[dict], notes=()) -> str:
     for label, rows in sections:
         parts += [f"## {label}", "", markdown_table(rows, cols, "model"), ""]
     gates = next((r.get("gates") for r in reps if r.get("gates")), {"skill": SKILL_GATE, "sens": SENS_GATE})
+    parts += [f"_coherence gate (coh_valid, dutch_inf, informative-coherence tables): skill_prior >= {gates['skill']} "
+              f"(skill where no prior tables were fitted) and sens >= {gates['sens']} (skipped where sens is "
+              f"undefined). skill_prior is measured against the best of uniform_joint, label_prior and "
+              f"template_uj fitted on train._", ""]
     for label, rows in [("overall", [(r.get("model", "?"), r["overall"]) for r in reps])] + sections:
         inf = [(m, v) for m, v in rows if v.get("coh_valid")]
-        parts += [f"## informative coherence, {label} (only rows with skill >= {gates['skill']} and "
+        parts += [f"## informative coherence, {label} (only rows with skill_prior >= {gates['skill']} and "
                   f"sens >= {gates['sens']})", "", markdown_table(inf, COH_COLUMNS, "model"), ""]
     parts += [f"_note: {n}_" for n in notes]
     return "\n".join(parts)

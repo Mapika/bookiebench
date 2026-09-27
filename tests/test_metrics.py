@@ -735,3 +735,43 @@ def test_procedural_families_fall_back_to_uniform(shuffled):
     assert o["skill_prior"] == pytest.approx(o["skill"])
     # the same data under a non-procedural family name does get a real prior
     assert _ref_overall(evals, "indep_joint", fit_indep(train))["skill"] > 0.2
+
+
+def test_gate_uses_skill_prior(shuffled):
+    """A train-prior cheater beats uniform_joint (skill > 0.05) but not the train prior (skill_prior < 0.05): not valid."""
+    from bookiebench.metrics.refs import fit_prior, prior_answers
+    train, evals = shuffled
+    T = fit_prior(train, cache=False)
+    rng = np.random.default_rng(3)
+    cheat = {}
+    for i, w in evals.items():
+        ans = prior_answers(w, "label_prior", T)
+        cheat[i] = {"base": {"answers": {k: list(np.clip(np.array(v) + rng.normal(0, .005, len(v)), .001, .999))
+                                         for k, v in ans.items()}}}
+    o = build_report(evaluate(evals, cheat, prior=T)[0])["overall"]
+    assert o["skill"] > 0.05 and o["skill_prior"] < 0.05
+    assert o["coh_valid"] == 0.0 and o["dutch_inf"] is None
+    # without prior tables the gate falls back to skill, which this cheater passes (no mart_var -> sens skipped)
+    o2 = build_report(evaluate(evals, cheat)[0])["overall"]
+    assert o2["skill_prior"] is None and o2["coh_valid"] == 1.0
+    # a model that reads the evidence clears the skill_prior gate
+    ex = {i: {"base": {"answers": _exact_answers(w)}} for i, w in evals.items()}
+    assert build_report(evaluate(evals, ex, prior=T)[0])["overall"]["coh_valid"] == 1.0
+
+
+def test_compare_without_manifest_and_old_reports(tmp_path, worlds):
+    data, results = _write_fixture_tree(tmp_path, worlds[:30])
+    assert not (data / "sims_manifest.json").exists()
+    # an old-format report.json without by_group / gates / skill_prior must not break compare
+    old = {"model": "noisy", "overall": {"n": 1}, "by_split": {}, "by_family": {}}
+    (results / "noisy" / "report.json").write_text(json.dumps(old))
+    p = subprocess.run([sys.executable, "-m", "bookiebench.metrics.compare", str(results / "oracle"), str(results / "noisy"),
+                        "--data", str(data), "--train", str(tmp_path / "none")],
+                       cwd=ROOT, capture_output=True, text=True, check=True)
+    assert "## group: other" in p.stdout and "| noisy |" in p.stdout
+    assert "coherence gate" in p.stdout and "skill_prior >= 0.05" in p.stdout
+    rep = json.loads((results / "noisy" / "report.json").read_text())
+    assert set(rep["by_group"]) == {"other"} and rep["gates"]["on"] == "skill_prior"
+    # render tolerates a report that still lacks by_group
+    from bookiebench.metrics.compare import render
+    assert "## overall" in render([old, rep])

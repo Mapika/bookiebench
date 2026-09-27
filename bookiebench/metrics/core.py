@@ -26,8 +26,9 @@ Conventions
 - `skill_prior` = mean over families of 1 - KL/KL_prior, KL_prior = the best (lowest mean KL on that family) of
   uniform_joint, ref:label_prior and ref:template_uj, fitted on train (refs.PriorTables). Families of groups in
   refs.PRIOR_FALLBACK_GROUPS (new_mechanics) and procedural families (randbn, randhmm) use uniform_joint only. None when no prior tables are given.
-- `coh_valid` = 1 iff skill >= SKILL_GATE (0.05) and sens >= SENS_GATE (0.05; the sens condition is skipped where sens
-  is undefined, i.e. no mart_var). Both gates are arguments of `aggregate` / `build_report` and CLI flags.
+- `coh_valid` = 1 iff skill_prior >= SKILL_GATE (0.05; `skill` is used where there are no prior tables) and
+  sens >= SENS_GATE (0.05; the sens condition is skipped where sens is undefined, i.e. no mart_var). Gating on
+  skill_prior keeps evidence-light cheaters (bag-of-words tfidf_lr: skill 0.1, skill_prior 0.025) out. Both gates are arguments of `aggregate` / `build_report` and CLI flags.
   `dutch_inf` = dutch when coh_valid, else None ("–"): coherence is only informative for a model that uses the
   evidence (uniform_joint is perfectly coherent).
 - `sens` (evidence sensitivity) = 1 - sum_k |dm_k - de_k|_1 / sum_k |de_k|_1 over consecutive steps of the mart_var
@@ -55,8 +56,9 @@ ALPHAS = (0.1, 0.2)
 ECE_BINS = 15
 
 EXPLOIT_DELTA = 0.01
-SKILL_GATE = 0.05  # coh_valid needs skill >= SKILL_GATE ...
+SKILL_GATE = 0.05  # coh_valid needs skill_prior (else skill) >= SKILL_GATE ...
 SENS_GATE = 0.05  # ... and sens >= SENS_GATE
+GATE_ON = "skill_prior"  # recorded in reports so stale report.json files (gated on skill) are recomputed
 DUTCH_KEYS = ("dutch", "dutch_norm", "dutch_per_bet", "dutch@0.005", "dutch@0.01", "dutch_ans")
 
 METRIC_COLUMNS = [
@@ -345,10 +347,9 @@ def _nan_none(x):
     return None if x is None or (isinstance(x, float) and not np.isfinite(x)) else x
 
 
-def group_of(inst: dict, groups: dict | None) -> str | None:
-    if groups is None:
-        return None
-    return groups.get(f"{inst.get('split')}/{inst.get('family')}") or default_group(inst.get("split", "?"))
+def group_of(inst: dict, groups: dict | None) -> str:
+    """Manifest group of an instance; without a manifest (or for unlisted files) realcoh* / stress / "other"."""
+    return (groups or {}).get(f"{inst.get('split')}/{inst.get('family')}") or default_group(inst.get("split", "?"))
 
 
 def default_group(split: str) -> str:
@@ -408,8 +409,9 @@ def aggregate(recs: list[dict], skill_gate: float = SKILL_GATE, sens_gate: float
     key = f"dutch@{EXPLOIT_DELTA}"
     out["dutch_frac_exploitable"] = _mean([float(r[key] > 1e-6) for r in recs if r.get(key) is not None])
     out["n_missing_inst"] = sum(bool(r.get("pred_missing")) for r in recs)
-    out["coh_valid"] = None if out["skill"] is None else float(
-        out["skill"] >= skill_gate and (out["sens"] is None or out["sens"] >= sens_gate))
+    gate_skill = out["skill_prior"] if out["skill_prior"] is not None else out["skill"]
+    out["coh_valid"] = None if gate_skill is None else float(
+        gate_skill >= skill_gate and (out["sens"] is None or out["sens"] >= sens_gate))
     out["dutch_inf"] = out["dutch"] if out["coh_valid"] else None
     for k in ("optperm", "evperm", "mart", "para"):
         out[k] = _mean([x for r in recs for x in r[k]])
@@ -427,17 +429,15 @@ def build_report(recs: list[dict], skill_gate: float = SKILL_GATE, sens_gate: fl
     for r in recs:
         by_split[r["split"]].append(r)
         by_family[f"{r['split']}/{r['family']}"].append(r)
-        if r.get("group") is not None:
-            by_group[r["group"]].append(r)
+        by_group[r.get("group") or default_group(r.get("split", "?"))].append(r)
     agg = lambda v: aggregate(v, skill_gate, sens_gate)  # noqa: E731
     rep = {
         "overall": agg(recs),
         "by_split": {k: agg(v) for k, v in sorted(by_split.items())},
         "by_family": {k: agg(v) for k, v in sorted(by_family.items())},
     }
-    if by_group:
-        rep["by_group"] = {k: agg(v) for k, v in sorted(by_group.items())}
-    rep["gates"] = {"skill": skill_gate, "sens": sens_gate}
+    rep["by_group"] = {k: agg(v) for k, v in sorted(by_group.items())}
+    rep["gates"] = {"skill": skill_gate, "sens": sens_gate, "on": GATE_ON}
     return rep
 
 

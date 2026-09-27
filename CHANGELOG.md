@@ -32,6 +32,10 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
   `DECIDER_SRC`, `BOOKIEBENCH_DECIDER_PUBLIC` / `_PRIVATE`. `HONEST_METRICS_OWN_EXACT` was renamed to
   `BOOKIEBENCH_METRICS_OWN_EXACT`.
 
+### Metrics gate (synced from upstream)
+- `coh_valid` now gates on skill_prior ≥ 0.05 (skill when no prior tables are given) and sens ≥ 0.05. Reports
+  record a `gates` marker. `compare` works without a manifest, grouping into realcoh / stress / other.
+
 ### Stress pack
 - `data/release/stress/` holds 16 transforms as data, about 300 MB. They are the programmatic transforms,
   paraphrase and lang_de/es/pt/zh. The LLM items passed both judges (Qwen3.8-27B-FP8 and deepseek-v41-flash) on every

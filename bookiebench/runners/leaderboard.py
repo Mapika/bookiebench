@@ -34,6 +34,11 @@ RC_COLS = ["n", "acc", "ece", "logscore", "dutch", "dutch@0.01", "dutch_frac_exp
            "answered_frac"]
 DELTA = ["skill", "kl", "acc", "dutch", "dutch@0.01"]
 API = ("deepseek",)
+XREFS = [ROOT / "review" / "final_shortcuts" / "results_v2" / n for n in ("tfidf_joint", "tfidf_lr")]
+XREF_GROUPS = ("in_family", "in_family_v2")                 # bag-of-words rows only where they are a meaningful level
+XREF_NOTE = ("xref:tfidf_* = bag-of-words level (review/final_shortcuts/results_v2): learnable from in-family surface "
+             "statistics without probabilistic reasoning; in_family skill_prior up to ~0.08 is achievable this way. "
+             "new_mechanics and surface_transfer are the transfer headlines.")
 
 
 def _report(d):
@@ -71,8 +76,10 @@ def main(argv=None):
     with Pool(max(1, min(a.jobs, len(models)))) as pool:
         reps = dict(zip(models, pool.map(_report, [str(REL / m) for m in models])))
     splits = sorted({s for r in reps.values() for s in r.get("by_split", {})})
-    refs, notes = reference_reports(splits, SUB, TRAIN)
-    refs = [r for r in refs if r["model"] in ("ref:uniform_joint", "ref:indep_joint", "ref:prior")]
+    xdirs = [d for d in XREFS if d.is_dir()]
+    refs, notes = reference_reports(splits, SUB, TRAIN, extra=xdirs)
+    refs = [r for r in refs if r["model"] in ("ref:uniform_joint", "ref:indep_joint", "ref:prior")
+            or r["model"].startswith("xref:")]
     info = {m: r["info"] for m, r in reps.items()}
     partial = {m for m, i in info.items() if i.get("n_missing_inst", 0) > 0.5 * max(i.get("n_evaluated", 1), 1)}
     full = [m for m in models if m not in partial]
@@ -97,7 +104,8 @@ def main(argv=None):
             md[-1] += f" {v['kl_cal_run']:.4f} → {v['kl_cal_fitted']:.4f} |"
         md.append("")
     for g in ORDER:
-        ref_rows = [(r["model"], r["by_group"][g]) for r in refs if g in r.get("by_group", {})]
+        ref_rows = [(r["model"], r["by_group"][g]) for r in refs if g in r.get("by_group", {})
+                    and (not r["model"].startswith("xref:") or g in XREF_GROUPS)]
         rows = {m: reps[m]["by_group"][g] for m in full if g in reps[m].get("by_group", {})}
         if not rows:
             continue
@@ -108,6 +116,8 @@ def main(argv=None):
             if rr:
                 md += [f"**{title}**", "", markdown_table((ref_rows if title.startswith("tempered") else []) + rr, COLS,
                                                           "model"), ""]
+                if title.startswith("tempered") and any(n.startswith("xref:") for n, _ in ref_rows):
+                    md += [f"_{XREF_NOTE}_", ""]
     cache = {}
     rcman = json.load(open(ROOT / "data" / "release" / "realcoh" / "manifest.json"))["sources"]
     rc = load_instances(SUB / "realcoh")

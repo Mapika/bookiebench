@@ -149,7 +149,7 @@ Implemented in `bookiebench/metrics/core.py` and `bookiebench/metrics/dutch.py`:
 | `sens` | 1 − Σ‖Δmodel − Δexact‖₁ / Σ‖Δexact‖₁ over consecutive steps of the martingale variable. Exact tracking scores 1, ignoring the evidence scores 0 |
 | `logscore`, `acc`, `ece` | against the sampled gold for final-step marginals whose variable has gold. `acc` splits credit among tied argmaxes (1/\|ties\|). `ece` is top-label with 15 bins |
 | `dutch` | per instance, the maximum guaranteed bookie profit, with stakes in [−1, 1], over all final-step queries (LP over the joint cells; conditional bets are called off when the condition fails); mean over instances. Also reported: `dutch_per_bet`, the tolerance-aware `dutch@0.005` (prices read as ±δ intervals), and `dutch_frac_exploitable` (share of instances with `dutch@0.01` > 1e-6) |
-| `coh_valid`, `dutch_inf` | `coh_valid` = 1 iff skill ≥ 0.05 **and** sens ≥ 0.05 (the sens condition is skipped where sens is undefined). `dutch_inf` = `dutch` only when `coh_valid`, else "–". The gates are the `--skill-gate` / `--sens-gate` flags |
+| `coh_valid`, `dutch_inf` | `coh_valid` = 1 iff **skill_prior** ≥ 0.05 (plain `skill` only when no train is given for the prior refs) **and** sens ≥ 0.05. The sens condition is skipped where sens is undefined. Gating on skill_prior keeps evidence-light shortcuts out: the bag-of-words `tfidf_lr` has skill 0.1 but skill_prior 0.025. `dutch_inf` = `dutch` only when `coh_valid`, else "–". The gates are the `--skill-gate` / `--sens-gate` flags. Reports record which gate was used (`gates`), so a stale `report.json` is recomputed |
 | `optperm`, `evperm`, `para` | mean total variation between base answers and option-permuted, evidence-permuted or paraphrased answers |
 | `mart` | mean \|p_k − Σ_j P(e_j) p_{k+1}^{(j)}\|, with the expectation taken under the **exact** law of the next evidence |
 | `kl_avgperm` | KL of the option-order-averaged answer. `kl − kl_avgperm` is the price of position bias |
@@ -211,7 +211,10 @@ variant. The train split was regenerated with `bookiebench generate --train-only
 
 On `prior` and `new_mechanics`, every train-fitted reference equals `ref:uniform_joint` because of the uniform
 fallback. On `in_family_v2`, evidence-blind train-fitted references reach skill of about 0.16-0.17. That is why
-`skill_prior` exists, and why the coherence gate asks for skill ≥ 0.05 together with sens ≥ 0.05.
+`skill_prior` exists, and why the coherence gate is on skill_prior ≥ 0.05 together with sens ≥ 0.05. No reference
+row passes the gate: the refs have skill_prior ≤ 0.026 and sens ≤ 0. Only the oracle's coherence is reported as
+informative (`dutch_inf`). The rows were rerun after the gate change and are unchanged; the gate affects only
+`coh_valid` / `dutch_inf`.
 
 The oracle's `acc` and `logscore` are the ceiling that sampled gold allows: gold is a draw from the exact posterior,
 so even perfect probabilities are "wrong" about a third of the time. Model results are in [LEADERBOARD.md](LEADERBOARD.md).
@@ -277,6 +280,7 @@ These come from the internal exactness, fairness, shortcut and release audits of
   shipped `ref:prior` reaches skill 0.160 on `in_family_v2` and 0.069 overall (reference rows above). In the
   shortcut review, which used the pre-re-split groups, `tfidf_joint` reached 0.115 and a template-keyed
   uniform-joint lookup 0.099 on the full eval. Use `skill_prior`, not only `skill`, for families with train data.
+  The coherence gate uses `skill_prior` for this reason.
   `uniform_joint` is 0 by definition and the oracle 1. Compare models against these rows, not only against 0.
 - **Overlap with decider training.** 10 realcoh sources are flagged `in_decider_train`: gold_news, bgl_logs,
   hdfs_logs, symptoms, tos, ledgar, climate, med_ru, code_defects, student_answers. They appear in decider's

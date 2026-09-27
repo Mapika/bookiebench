@@ -67,12 +67,21 @@ here:
 - Dropped before release: `chat` (ShareGPT: no licence, jailbreak prompts), `mailing_list` (personal data),
   `job_ads` and `recipes` (not the intended kind of page).
 
-## Stress pack (not shipped yet)
+## Stress pack (`data/release/stress/`)
 
-When `data/release/stress/` is added, note the following. The `long_*` transforms embed filler text from CNN/DailyMail
-(validation split), microsoft/wiki_qa and SetFit/20_newsgroups (comp/sci/rec/forsale groups). Their licences must
-be added here, or the long-context transforms shipped as a rebuild-only download. The stress LLM transforms were
-produced with a local open-weights model.
+- **Shipped text** (programmatic transforms, paraphrase, lang_de/es/pt/zh): CC-BY-4.0 (`LICENSE-DATA`). It is
+  generated from the shipped simulator files. The LLM rewrites were produced with a local open-weights model,
+  Qwen3.8-27B-FP8.
+- **Not shipped:** `long_4k/8k/16k/32k`. They embed filler text from three datasets:
+  - CNN/DailyMail validation (abisee/cnn_dailymail; article text copyright CNN / Daily Mail; ids-only in the
+    realcoh licence review);
+  - microsoft/wiki_qa train;
+  - SetFit/20_newsgroups test (the comp/sci/rec/forsale groups).
+
+  Only a recipe ships (`recipe.json`: pinned dataset revisions, source ids, and per-instance sha256 values). Users
+  rebuild the text locally with `bookiebench rebuild-stress --long` from their own copies of those datasets, under
+  the datasets' terms.
+- **`scaling`** is not shipped for size reasons, and is rebuilt from the shipped simulator files (CC-BY-4.0).
 
 `bookiebench/sims/packs/stress/common_words.txt.gz` is a list of lower-case English word types seen at least 3 times
 in 60k CNN/DailyMail training articles. It is a vocabulary list, with no running text.

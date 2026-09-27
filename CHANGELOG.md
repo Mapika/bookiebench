@@ -32,6 +32,17 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
   `DECIDER_SRC`, `BOOKIEBENCH_DECIDER_PUBLIC` / `_PRIVATE`. `HONEST_METRICS_OWN_EXACT` was renamed to
   `BOOKIEBENCH_METRICS_OWN_EXACT`.
 
+### Stress pack
+- `data/release/stress/` holds 16 transforms as data, about 300 MB. They are the programmatic transforms,
+  paraphrase and lang_de/es/pt/zh. The LLM items passed both judges (Qwen3.8-27B-FP8 and deepseek-v41-flash) on every
+  segment.
+- long_4k/8k/16k/32k and scaling ship as a hash-checked recipe (`recipe.json`). The new command
+  `bookiebench rebuild-stress --long` / `--transforms scaling` regenerates them and verifies every instance and
+  every file. Full rebuilds of long_4k, long_32k and scaling for urn and spam matched the upstream files byte for
+  byte.
+- lang_zh is marked BETA (manifest `beta`, README, DATASHEET, leaderboard footnote). lang_hu and framing are
+  excluded from v1.
+
 ### Synced from upstream (metrics and groups)
 - Groups: `in_family_v2` (13 pack dev families with train data), and `new_mechanics` (val plus 9 pack families held
   out of train permanently, `HOLDOUT_TRAIN`, 11 families). The train plan now has 22 files and 600k instances. The
@@ -44,5 +55,4 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
 
 ### Pending before 0.1.0
 - The realcoh data resync (LEDGAR e-mail masking).
-- The stress pack data, after the judge-2 manifest.
 - The leaderboard.

@@ -16,8 +16,12 @@ DATA = Path(__file__).resolve().parents[1] / "data"
 OUT = DATA / "CHECKSUMS.sha256"
 
 
+REBUILT = ("release/stress/long_", "release/stress/scaling/")  # recipe outputs (git-ignored), verified by the recipe
+
+
 def files():
-    return sorted(p for p in DATA.rglob("*") if p.is_file() and p != OUT and not p.name.startswith("."))
+    return sorted(p for p in DATA.rglob("*") if p.is_file() and p != OUT and not p.name.startswith(".")
+                  and not str(p.relative_to(DATA)).startswith(REBUILT))
 
 
 def sha(p: Path) -> str:

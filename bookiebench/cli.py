@@ -2,6 +2,7 @@
 
     bookiebench generate [release-builder args]        build the release layout (bookiebench.sims.release)
     bookiebench rebuild-realcoh --release DIR --out DIR  fill the text of ids_only realcoh sources from the HF cache
+    bookiebench rebuild-stress [--long] [--transforms scaling] [--sample K --check]   recipe-shipped stress transforms
     bookiebench run <runner> INPUTS... [runner args]   runner: uniform | oracle | logit | decider | julia | api
     bookiebench score results/<model> --data DIR        metrics report for one model (bookiebench.metrics.report)
     bookiebench compare results/<m1> results/<m2> ...   cross-model tables with reference rows (bookiebench.metrics.compare)
@@ -44,6 +45,9 @@ def main(argv=None) -> int:
         from bookiebench.realcoh import build_v2
         build_v2.main(["rebuild", *rest])
         return 0
+    if cmd == "rebuild-stress":
+        from bookiebench import stress_rebuild
+        return stress_rebuild.main(rest)
     if cmd == "run":
         if not rest or rest[0] not in RUNNERS:
             print(f"usage: bookiebench run {{{'|'.join(RUNNERS)}}} INPUTS... [args]  (got {rest[:1]})")

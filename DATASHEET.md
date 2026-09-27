@@ -35,8 +35,12 @@ need sign-off or depend on pending upstream changes.
 - **Not shipped but regenerable.** The train split is not shipped: 22 files, 600,000 instances, about 3.8 GB. Regenerate it with
   `bookiebench generate --train-only`. It is deterministic, and prefixes were verified byte-identical against the
   upstream build. Leaderboard test editions are generated from secret seeds (`scripts/make_hidden_test.py`).
-- **Pending.** The stress pack: 21 transforms of the 11 v1 test/heldout families (see
-  `data/release/stress/TODO.md`).
+- **Stress pack.** 21 transforms of the 11 v1 test/heldout families, 300 source instances each.
+  - Shipped as data (about 300 MB): 11 programmatic transforms (3,300 items each), paraphrase (2,250), lang_de
+    (2,156), lang_es (2,535), lang_pt (2,451) and **lang_zh, BETA** (2,119).
+  - Shipped as a hash-checked recipe: long_4k/8k/16k/32k (third-party filler) and scaling (about 260 MB,
+    deterministic).
+  - Excluded from v1: lang_hu and framing. Details are in `data/release/stress/README.md`.
 - **Sample or complete?** Simulator splits are samples from the generators' priors, after release selection (below).
   realcoh draws 200 states per source from the named datasets at pinned revisions (seed 0).
 - **Labels.**
@@ -89,10 +93,15 @@ need sign-off or depend on pending upstream changes.
   - dropping items whose answer appears verbatim (belebele_es)
   - corrected symptom systems
   - gold withheld where it was biased (support_chat)
-- **Stress (pending).**
-  - Programmatic transforms: formats, bias framings, long-context filler, scaling.
-  - LLM transforms: paraphrase, translation. These are checked programmatically and by an LLM judge. A second judge
-    is pending.
+- **Stress.**
+  - Programmatic transforms: formats, bias framings, long-context filler, scaling. They are deterministic in
+    (seed, transform, source id).
+  - LLM transforms: paraphrase and translation, rewritten by Qwen3.8-27B-FP8. An item is kept only if it passes
+    programmatic checks (numbers and names preserved) and **both** judges on every segment. Judge 1 is the rewriting
+    model at temperature 0; judge 2 is deepseek-v41-flash. Instance-level judge agreement is κ 0.34-0.47.
+  - lang_zh additionally passes a rule-based double-negation filter, which removed 64 items. It is still marked
+    **BETA**: both judges detect only 0.64/0.66 of planted query-negation flips in Chinese
+    (`logs/stress_judge_controls_judge{,2}.json` upstream).
 - **Timeframe.** Built September 2026. realcoh sources span their datasets' own collection periods.
 - **Ethical review.** No human subjects were recruited. TODO: state any institutional review, if applicable.
 
@@ -121,8 +130,9 @@ references and hashes are.
 
 ## Distribution
 
-- **How.** TODO: not published yet. The candidate plan is a code repository plus a dataset hub. The data is about
-  113 MB now; stress would add about 1.7 GB, mostly long-context.
+- **How.** TODO: not published yet. The candidate plan is a code repository plus a dataset hub. The data files in git
+  total about 415 MB: 113 MB of eval/dev and realcoh, and 300 MB of stress text. Recipe-built stress (long_*,
+  scaling) would add about 1.3 GB, which users build locally.
 - **Licence.** Code is Apache-2.0. Generated synthetic data (simulators, our stress text) is CC-BY-4.0
   (`LICENSE-DATA`). realcoh text keeps each source's licence
   (`NOTICE.md`, `data/release/realcoh/NOTICE.md`). `ids_only` sources are rebuilt by users under the upstream terms.

@@ -30,7 +30,7 @@ Coherence is cheap: `uniform_joint` has `dutch = 0`. So BookieBench reports cohe
 | pack `mechanics` | 17 closed-form worlds: blackjack, poker, minesweeper, Monty Hall, birthday, matching, reliability, tournaments, noisy channels, Bayesian search, epidemics, gauges, queues, inventory, forensic evidence, raters, capture-recapture | yes |
 | pack `programs` | random probabilistic programs rendered as code (abstract and domain-flavoured) | yes (enumeration) |
 | pack `tables` | CSV/JSON tables and log streams; questions under the empirical distribution | yes |
-| pack `stress` | transforms over v1 families: base rate, conjunction/disjunction framing, anchoring, negation, nesting, formats (chat/CSV/email/log/markdown), long context (4k-32k tokens), many-world scaling, LLM paraphrase and translation | inherited |
+| pack `stress` | 21 transforms of the 11 v1 test/heldout families: base rate, conjunction/disjunction framing, anchoring, negation, nesting, formats (chat/CSV/email/log/markdown), long context (4k-32k tokens), many-world scaling, LLM paraphrase and translation (de/es/pt, zh **BETA**) | inherited |
 | `realcoh` | 25 real-world sources x 200 states with linked question sets; no exact law, so coherence plus gold where the dataset has labels | no |
 
 ### Levels and groups
@@ -87,6 +87,15 @@ The shipped eval files were built together with train (seed 0), and each one was
 reproduce them byte for byte, run `bookiebench generate --out data/release` (train first, then eval), not
 `--eval-only`. Train instance *i* depends only on (seed, family, split, *i*), so any `--n-scale` build reproduces
 a prefix of the full train file.
+
+Stress transforms whose text is third-party (long_*) or large and fully determined (scaling) ship as a hash-checked
+recipe (`data/release/stress/README.md`):
+
+```bash
+pip install -e ".[stress]"
+bookiebench rebuild-stress --transforms scaling       # no external data
+HF_HUB_OFFLINE=1 bookiebench rebuild-stress --long    # after fetching the pinned filler datasets + tokenizer
+```
 
 Real-world states whose licence does not allow redistribution ship as ids only. Rebuild their text from a local
 Hugging Face cache at the pinned revisions (`pip install -e ".[realcoh]"`; see `data/release/realcoh/NOTICE.md`):
@@ -277,15 +286,26 @@ These come from the internal exactness, fairness, shortcut and release audits of
 - **Pretraining contamination.** 23 of 25 realcoh sources are flagged `likely_pretraining` (all except symptoms and
   support_chat). Gold accuracy on them may be inflated. The coherence metrics need no gold and are much less affected.
 - **Judge-based filtering of the LLM stress items.** Paraphrase and translation items are kept only if they pass
-  programmatic number-preservation checks and an LLM judge. The judge is the same model that did the rewriting, at
-  temperature 0. The kept sets therefore depend on the judge. Kept fractions: lang_de 2,274 / 3,300, lang_es 2,665,
-  lang_pt 2,590, lang_zh 2,195, paraphrase 2,428. Two transforms were excluded:
-  - `lang_hu`: only 48.6% of items survived, and a hand check found meaning errors in judge-clean items.
+  programmatic number-preservation checks and **both** LLM judges on every segment. Judge 1 is the rewriting model,
+  Qwen3.8-27B-FP8, at temperature 0. Judge 2 is deepseek-v41-flash. The kept sets therefore depend on the judges.
+
+  | transform | kept / 3,300 | judge agreement (Cohen's κ) |
+  |---|---|---|
+  | paraphrase | 2,250 | 0.47 |
+  | lang_de | 2,156 | 0.42 |
+  | lang_es | 2,535 | 0.37 |
+  | lang_pt | 2,451 | 0.34 |
+  | lang_zh | 2,119 | 0.41 |
+
+  Source: `logs/stress_finalize.json` upstream. Two transforms were excluded from v1:
+  - `lang_hu`: only 48.6% of items survived judge 1, and a hand check found meaning errors in judge-clean items.
   - `framing`: 26.6% survived, and the judge caught only 73% of planted number changes.
 
-  Stressed-vs-clean comparisons are unbiased only on the kept source ids listed in the stress manifest.
-  **TODO(stress): the DeepSeek second-judge pass is still running upstream. The final stress manifest will add
-  judge-2 results, and the kept sets may shrink.**
+  Stressed-vs-clean comparisons are unbiased only on the kept source ids in `data/release/stress/manifest.json`.
+- **lang_zh is BETA.** Planted query-negation flips in Chinese are detected only 0.64 of the time by judge 1 and
+  0.66 by judge 2. For de, es, pt and paraphrase the rates are 0.96-1.00 (`logs/stress_judge_controls_judge{,2}.json`
+  upstream). A rule-based double-negation filter removed 64 more items. Report lang_zh separately, and do not pool it
+  into headline stress numbers (`manifest.json` → `beta`).
 - **Release selection.** Instances are redrawn when their questions are degenerate or their posterior never moves.
   The exact answers are unaffected, and a 1,000-3,000-instance-per-family check found no family with \|acc − conf\| > 0.03
   after the redraw. Gold-based accuracy and ECE are still measured on the selected subset. On the shipped
@@ -301,7 +321,8 @@ These come from the internal exactness, fairness, shortcut and release audits of
 
 ```
 bookiebench/            the package (sims + packs, realcoh, metrics, runners, cli)
-data/release/           shipped eval/dev files, realcoh release, manifests; CHECKSUMS in data/CHECKSUMS.sha256
+data/release/           shipped eval/dev files, realcoh release, stress (data + recipe.json), manifests;
+                        CHECKSUMS in data/CHECKSUMS.sha256
 scripts/make_hidden_test.py   leaderboard edition generator
 tools/                  checksums.py, sync_upstream.py (maintainers)
 tests/                  CPU test suite
@@ -313,9 +334,8 @@ Verify the data with `python tools/checksums.py` (or `cd data && sha256sum -c CH
 
 - [ ] Resync `data/release/realcoh` after the upstream e-mail masking (the realcoh code is already synced:
       `rebuild` now masks e-mails, so ids_only rebuilds match only after the data sync).
-- [ ] Add `data/release/stress/` once the stress manifest has the judge-2 field (see `data/release/stress/TODO.md`).
 - [ ] Fill `LEADERBOARD.md` from the upstream release leaderboard.
-- [ ] Decide on hosting for the data (about 113 MB in git now; consider LFS or a dataset hub) (name check: `docs/NAME_CHECK.md`).
+- [ ] Decide on hosting for the data (about 415 MB of data files in git now, including 300 MB of stress text; consider LFS or a dataset hub) (name check: `docs/NAME_CHECK.md`).
 
 ## Licence
 

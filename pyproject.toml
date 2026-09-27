@@ -22,8 +22,10 @@ realcoh = ["pyarrow>=14", "pandas>=2", "huggingface_hub>=0.23"]
 models = ["torch>=2.3", "transformers>=4.45"]
 # OpenAI-compatible API runner
 api = ["aiohttp>=3.9"]
-# stress pack regeneration (long-context filler, LLM paraphrase/translation + judge)
-stress = ["pyarrow>=14", "transformers>=4.45", "huggingface_hub>=0.23", "vllm"]
+# stress recipe rebuild (bookiebench rebuild-stress: long_* tokenizer + filler reading; tested with these versions)
+stress = ["pyarrow>=14", "transformers>=5.17", "tokenizers>=0.23", "huggingface_hub>=0.23"]
+# regenerating the LLM stress transforms themselves (maintainers; GPU)
+stress-llm = ["vllm", "huggingface_hub>=0.23"]
 test = ["pytest>=8"]
 dev = ["pytest>=8", "threadpoolctl>=3"]
 

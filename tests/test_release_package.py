@@ -71,10 +71,65 @@ def test_realcoh_release_modes():
     assert (REL / "realcoh" / "NOTICE.md").exists()
 
 
-def test_stress_not_shipped_until_final_manifest():
-    d = REL / "stress"
-    if (d / "manifest.json").exists():
-        assert '"judge2"' in (d / "manifest.json").read_text(), "stress shipped without the judge-2 manifest"
+STRESS = REL / "stress"
+STRESS_DATA = ["anchoring", "base_rate", "conjunction", "disjunction", "format_chat", "format_csv", "format_email",
+               "format_log", "format_markdown", "negation", "nested", "paraphrase", "lang_de", "lang_es", "lang_pt",
+               "lang_zh"]
+STRESS_RECIPE = ["long_4k", "long_8k", "long_16k", "long_32k", "scaling"]
+
+
+def test_stress_layout_and_flags():
+    man = json.loads((STRESS / "manifest.json").read_text())
+    assert sorted(man["release_format"]["data"]) == sorted(STRESS_DATA)
+    assert sorted(man["release_format"]["recipe"]) == sorted(STRESS_RECIPE)
+    assert "lang_zh" in man["beta"] and "BETA" in man["beta"]["lang_zh"]
+    assert set(man["excluded_v1"]) == {"lang_hu", "framing"}
+    for t in ("lang_hu", "framing"):
+        assert not (STRESS / t).exists()
+    recipe = json.loads((STRESS / "recipe.json").read_text())
+    assert sorted(recipe["transforms"]) == sorted(STRESS_RECIPE)
+    for t in STRESS_DATA:
+        files = sorted((STRESS / t).glob("*.jsonl"))
+        assert len(files) == 11, t
+        kept = sum(v["n_kept"] for v in man["transforms"][t].values())
+        assert kept == sum(1 for f in files for _ in open(f)), t
+
+
+@pytest.mark.parametrize("t", ["paraphrase", "lang_de", "lang_es", "lang_pt", "lang_zh"])
+def test_stress_llm_items_pass_both_judges(t):
+    man = json.loads((STRESS / "manifest.json").read_text())["transforms"][t]
+    for f in sorted((STRESS / t).glob("*.jsonl")):
+        ids = []
+        for line in open(f, encoding="utf-8"):
+            r = json.loads(line)
+            st = r["meta"]["stress"]
+            for j in ("judge", "judge2"):
+                assert st[j] and not st[j]["different"] and not st[j]["unparsed"], (t, r["id"], j)
+            ids.append(r["meta"]["source_id"])
+        assert ids == man[f.stem]["kept_source_ids"], (t, f.stem)
+
+
+def test_stress_scaling_recipe_sample():
+    from bookiebench import stress_rebuild
+    rep = stress_rebuild.rebuild(["scaling"], None, families=["urn", "spam"], sample=2, log=lambda *_: None)
+    assert all(v["ok"] for v in rep["scaling"].values())
+
+
+def _long_ready():
+    from bookiebench import stress_rebuild
+    try:
+        import transformers  # noqa: F401
+    except ImportError:
+        return False
+    return not stress_rebuild.check_long_inputs(json.loads(stress_rebuild.RECIPE.read_text()))
+
+
+@pytest.mark.skipif(not _long_ready(), reason="long-context filler / tokenizer not in the HF cache")
+def test_stress_long_recipe_sample():
+    from bookiebench import stress_rebuild
+    rep = stress_rebuild.rebuild(["long_4k", "long_16k"], None, families=["dice", "hiring"], sample=2,
+                                 log=lambda *_: None)
+    assert all(v["ok"] for t in rep.values() for v in t.values())
 
 
 def test_cli_generate_run_score(tmp_path):

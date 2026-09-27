@@ -9,3 +9,5 @@ data/release/train/
 data/release/.train_keys/
 data/realcoh_full/
 *.partial
+data/release/stress/long_*/
+data/release/stress/scaling/

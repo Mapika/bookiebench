@@ -48,17 +48,17 @@ Every instance carries `level`, `pack`, `family` and `transform` tags.
 
 Groups say what a model could have trained on (`data/release/sims_manifest.json`):
 
-| group | files | instances |
-|---|---|---|
-| `in_family` | `test/` (7 v1 train families, unseen worlds) | 2,100 |
-| `prior` | `test_prior/` (randbn, randhmm) | 600 |
-| `surface_transfer` | `heldout/` (factory, weather, spam, hiring): re-skinned versions of the train mechanics, **not** new reasoning | 1,200 |
-| `new_mechanics` | `val/` + `{mechanics,programs,tables}/dev/` | 7,200 |
+| group | files | instances | train data for the family? |
+|---|---|---|---|
+| `in_family` | `test/` (7 v1 families) | 2,100 | yes (unseen worlds) |
+| `prior` | `test_prior/` (randbn, randhmm) | 600 | yes (unseen worlds) |
+| `in_family_v2` | 13 pack dev families: blackjack, poker, minesweeper, birthday, matching, reliability, tournament, channel, gauge, inventory, prog_abstract, tab_pick, tab_big | 3,900 | yes (unseen worlds) |
+| `surface_transfer` | `heldout/` (factory, weather, spam, hiring) | 1,200 | no, but they re-skin the v1 train mechanics: **not** new reasoning |
+| `new_mechanics` | `val/` (genetics, tracking) + 9 pack dev families held out of train permanently: epidemic, forensic, raters, recapture, montyhall, search, queue, prog_domain, tab_stream | 3,300 | **no**: 11 families never in train |
 
-> **TODO(groups): upstream is re-splitting these groups.** Nine v2 families (epidemic, forensic, raters, recapture,
-> montyhall, search, queue, prog_domain, tab_stream) are being taken out of train and move to `new_mechanics` with
-> `val/`. The other 13 v2 dev families become `in_family_v2`. The eval files stay byte-identical. Only
-> `sims_manifest.json`, the train plan and the group tables change. Update this table after the next sync.
+`new_mechanics` is the transfer headline. The nine held-out pack families are
+`bookiebench.sims.release.HOLDOUT_TRAIN`. Their train split is generated only in memory during a build, for dedupe
+keys, and is never written.
 
 ## Quickstart
 
@@ -79,7 +79,7 @@ Regenerate data (deterministic in `--seed`; CPU; `--workers` processes):
 
 ```bash
 bookiebench generate --out data/release --eval-only           # the eval/dev files shipped here (no train dedupe)
-bookiebench generate --out data/release --train-only          # the 780k-instance train split (about 4.8 GB) + dedupe keys
+bookiebench generate --out data/release --train-only          # the train split (22 files, 600k instances, ~3.8 GB) + dedupe keys
 bookiebench generate --out /tmp/smoke --n-scale 0.01          # a quick, small build of everything
 ```
 
@@ -136,19 +136,28 @@ Implemented in `bookiebench/metrics/core.py` and `bookiebench/metrics/dutch.py`:
 |---|---|
 | `kl`, `kl_marg`, `kl_bin` | mean KL(exact ‖ predicted) over base-variant queries at their own step: vector KL for marginals, Bernoulli KL for yes/no/conditional queries |
 | `skill` (`skill_marg`, `skill_bin`) | mean over families of 1 − KL / KL_ref. KL_ref is the KL of `uniform_joint` on the same queries. ≤ 0 means no better than reading nothing |
+| `skill_prior` | mean over families of 1 − KL / KL_prior, with KL_prior the best (lowest-KL) of `uniform_joint`, `ref:label_prior` and `ref:template_uj` on that family. The last two are fitted on train (`--train`, default `<data>/train`). **Uniform fallback:** families in `new_mechanics` and the procedural families randbn/randhmm (whose option words have random meanings) use `uniform_joint` only. ≤ 0 means no better than an evidence-blind train-fitted prior |
 | `sens` | 1 − Σ‖Δmodel − Δexact‖₁ / Σ‖Δexact‖₁ over consecutive steps of the martingale variable. Exact tracking scores 1, ignoring the evidence scores 0 |
 | `logscore`, `acc`, `ece` | against the sampled gold for final-step marginals whose variable has gold. `acc` splits credit among tied argmaxes (1/\|ties\|). `ece` is top-label with 15 bins |
 | `dutch` | per instance, the maximum guaranteed bookie profit, with stakes in [−1, 1], over all final-step queries (LP over the joint cells; conditional bets are called off when the condition fails); mean over instances. Also reported: `dutch_per_bet`, the tolerance-aware `dutch@0.005` (prices read as ±δ intervals), and `dutch_frac_exploitable` (share of instances with `dutch@0.01` > 1e-6) |
-| `coh_valid`, `dutch_inf` | `dutch_inf` = `dutch` only for models with skill > 1e-6, else "–" |
+| `coh_valid`, `dutch_inf` | `coh_valid` = 1 iff skill ≥ 0.05 **and** sens ≥ 0.05 (the sens condition is skipped where sens is undefined). `dutch_inf` = `dutch` only when `coh_valid`, else "–". The gates are the `--skill-gate` / `--sens-gate` flags |
 | `optperm`, `evperm`, `para` | mean total variation between base answers and option-permuted, evidence-permuted or paraphrased answers |
 | `mart` | mean \|p_k − Σ_j P(e_j) p_{k+1}^{(j)}\|, with the expectation taken under the **exact** law of the next evidence |
 | `kl_avgperm` | KL of the option-order-averaged answer. `kl − kl_avgperm` is the price of position bias |
 | `cover@α`, `size@α` | split-conformal (LAC) coverage and mean set size on a hash-determined half of the instances, calibrated on the other half within each reported group |
 | `answered_frac` | share of queries with a valid answer (a headline column) |
 
-> **TODO(metrics): upstream is extending the metrics.** Coming: a train-fitted prior reference (`ref:prior`,
-> `skill_prior`), a corrected label-keyed `ref:indep_joint`, a stricter coherence gate (skill ≥ 0.05 and sens ≥ 0.05
-> instead of skill > 1e-6), and group tables read from the manifest. Update this table after the next sync.
+Reference predictors are computed internally by `bookiebench compare`, with no prediction files needed. All of
+them are evidence-blind (`sens` = 0).
+
+| reference | what it is |
+|---|---|
+| `ref:uniform_joint` | uniform over joint cells |
+| `ref:indep_joint` | product of train-mean marginals keyed by option text, shrunk toward 1/K |
+| `ref:label_prior`, `ref:template_uj` | train-fitted option-label and question-template lookups |
+| `ref:prior` | the stronger of `ref:label_prior` and `ref:template_uj` per family |
+
+Reports are broken down by group (from `sims_manifest.json`), by split and by family.
 
 **Missing answers never help.** An answer counts as missing if it is absent, NaN, or has the wrong length.
 
@@ -163,25 +172,37 @@ gets `dutch` ≈ 3.45 and `answered_frac` ≈ 0.48 (`review/final_exactness/gami
 
 ## Reference rows
 
-The reference rows below were computed from the files in this repository with `bookiebench run {oracle,uniform}` and
-`bookiebench compare --recompute` over all 11,100 shipped simulator eval/dev instances (every variant). `uniform` is
-per-question uniform (1/K, 0.5), which is incoherent. `ref:uniform_joint` is the coherent evidence-blind floor.
+The reference rows below were computed from the files in this repository with `bookiebench run {oracle,uniform}`
+and `bookiebench compare --recompute --train <train>` over all 11,100 shipped simulator eval/dev instances, every
+variant. The train split was regenerated with `bookiebench generate --train-only`. `uniform` is per-question uniform
+(1/K, 0.5), which is incoherent. `ref:uniform_joint` is the coherent evidence-blind floor.
 
-| split | model | n | skill | kl | kl_marg | kl_bin | sens | acc | logscore | dutch | cover@0.1 |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| overall | ref:uniform_joint | 11100 | 0.0000 | 0.2175 | 0.2813 | 0.1570 | 0.0000 | 0.4018 | -0.9699 | 0.0000 | 0.9071 |
-| overall | oracle | 11100 | 1.0000 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 0.6771 | -0.6808 | 0.0000 | 0.9016 |
-| overall | uniform | 11100 | -0.2978 | 0.2712 | 0.2813 | 0.2616 | 0.0000 | 0.4018 | -0.9699 | 0.8200 | 0.9071 |
-| test | ref:uniform_joint | 2100 | 0.0000 | 0.2139 | 0.2603 | 0.1645 | 0.0000 | 0.4353 | -0.8580 | 0.0000 | 0.9691 |
-| test | oracle | 2100 | 1.0000 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 0.7227 | -0.5776 | 0.0000 | 0.9078 |
-| test_prior | ref:uniform_joint | 600 | 0.0000 | 0.1711 | 0.1932 | 0.1465 | 0.0000 | 0.4342 | -0.8558 | 0.0000 | 0.9616 |
-| test_prior | oracle | 600 | 1.0000 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 0.6912 | -0.6309 | 0.0000 | 0.8969 |
-| heldout | ref:uniform_joint | 1200 | 0.0000 | 0.1633 | 0.1901 | 0.1342 | 0.0000 | 0.4437 | -0.8300 | 0.0000 | 1.0000 |
-| heldout | oracle | 1200 | 1.0000 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 0.6814 | -0.6522 | 0.0000 | 0.9098 |
-| val | ref:uniform_joint | 600 | 0.0000 | 0.3240 | 0.4352 | 0.1996 | 0.0000 | 0.3777 | -1.0309 | 0.0000 | 0.9248 |
-| val | oracle | 600 | 1.0000 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 0.6858 | -0.6273 | 0.0000 | 0.8866 |
-| dev (packs) | ref:uniform_joint | 6600 | 0.0000 | 0.2235 | 0.3025 | 0.1558 | 0.0000 | 0.3812 | -1.0413 | 0.0000 | 0.9282 |
-| dev (packs) | oracle | 6600 | 1.0000 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 0.6582 | -0.7322 | 0.0000 | 0.9063 |
+| group | model | n | skill | skill_prior | kl | sens | acc | logscore | dutch | cover@0.1 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| overall | ref:uniform_joint | 11100 | 0.0000 | -0.1466 | 0.2175 | 0.0000 | 0.4018 | -0.9699 | 0.0000 | 0.9071 |
+| overall | ref:indep_joint | 11100 | 0.0727 | 0.0073 | 0.1998 | 0.0000 | 0.4466 | -0.9464 | 0.0000 | 0.9022 |
+| overall | ref:prior | 11100 | 0.0694 | -0.0018 | 0.2003 | -0.0183 | 0.4492 | -0.9458 | 0.0755 | 0.9031 |
+| overall | oracle | 11100 | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.6771 | -0.6808 | 0.0000 | 0.9016 |
+| overall | uniform | 11100 | -0.2978 | -0.4757 | 0.2712 | 0.0000 | 0.4018 | -0.9699 | 0.8200 | 0.9071 |
+| in_family | ref:uniform_joint | 2100 | 0.0000 | -0.1214 | 0.2139 | 0.0000 | 0.4353 | -0.8580 | 0.0000 | 0.9691 |
+| in_family | ref:prior | 2100 | 0.0638 | -0.0094 | 0.1929 | -0.0073 | 0.5081 | -0.8290 | 0.1070 | 0.8982 |
+| in_family | oracle | 2100 | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.7227 | -0.5776 | 0.0000 | 0.9078 |
+| prior | ref:uniform_joint | 600 | 0.0000 | 0.0000 | 0.1711 | 0.0000 | 0.4342 | -0.8558 | 0.0000 | 0.9616 |
+| prior | oracle | 600 | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.6912 | -0.6309 | 0.0000 | 0.8969 |
+| in_family_v2 | ref:uniform_joint | 3900 | 0.0000 | -0.3480 | 0.2219 | 0.0000 | 0.3835 | -1.0403 | 0.0000 | 0.9113 |
+| in_family_v2 | ref:indep_joint | 3900 | 0.1697 | 0.0260 | 0.1822 | 0.0000 | 0.4733 | -0.9885 | 0.0000 | 0.8975 |
+| in_family_v2 | ref:prior | 3900 | 0.1597 | 0.0000 | 0.1841 | -0.0580 | 0.4757 | -0.9896 | 0.1436 | 0.9015 |
+| in_family_v2 | oracle | 3900 | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.6572 | -0.7291 | 0.0000 | 0.8986 |
+| surface_transfer | ref:uniform_joint | 1200 | 0.0000 | -0.0121 | 0.1633 | 0.0000 | 0.4437 | -0.8300 | 0.0000 | 1.0000 |
+| surface_transfer | ref:prior | 1200 | 0.0113 | -0.0002 | 0.1607 | 0.0000 | 0.4571 | -0.8208 | 0.0447 | 0.8978 |
+| surface_transfer | oracle | 1200 | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.6814 | -0.6522 | 0.0000 | 0.9098 |
+| new_mechanics | ref:uniform_joint | 3300 | 0.0000 | 0.0000 | 0.2461 | 0.0000 | 0.3779 | -1.0403 | 0.0000 | 0.9467 |
+| new_mechanics | oracle | 3300 | 1.0000 | 1.0000 | 0.0000 | 1.0000 | 0.6649 | -0.7152 | 0.0000 | 0.9112 |
+| new_mechanics | uniform | 3300 | -0.3061 | -0.3061 | 0.3028 | 0.0000 | 0.3779 | -1.0403 | 0.8823 | 0.9467 |
+
+On `prior` and `new_mechanics`, every train-fitted reference equals `ref:uniform_joint` because of the uniform
+fallback. On `in_family_v2`, evidence-blind train-fitted references reach skill of about 0.16-0.17. That is why
+`skill_prior` exists, and why the coherence gate asks for skill ≥ 0.05 together with sens ≥ 0.05.
 
 The oracle's `acc` and `logscore` are the ceiling that sampled gold allows: gold is a draw from the exact posterior,
 so even perfect probabilities are "wrong" about a third of the time. Model results are in [LEADERBOARD.md](LEADERBOARD.md).
@@ -242,10 +263,11 @@ These come from the internal exactness, fairness, shortcut and release audits of
 
   Source: the `qonly` field of `review/release_audit/degenerate.json`, upstream.
 - **`heldout` is surface transfer, not new mechanics.** The four held-out families re-skin the v1 train mechanics.
-  Read `new_mechanics` (and, after the pending re-split, only the families with no train data) as the transfer
-  headline.
-- **Shallow text baselines have positive skill.** Evidence-blind or template-level predictors are not at zero. On
-  the full release eval, `tfidf_joint` reaches skill 0.115 and a template-keyed uniform-joint lookup reaches 0.099.
+  Read `new_mechanics` (11 families with no train data) as the transfer headline.
+- **Shallow text baselines have positive skill.** Evidence-blind or template-level predictors are not at zero. The
+  shipped `ref:prior` reaches skill 0.160 on `in_family_v2` and 0.069 overall (reference rows above). In the
+  shortcut review, which used the pre-re-split groups, `tfidf_joint` reached 0.115 and a template-keyed
+  uniform-joint lookup 0.099 on the full eval. Use `skill_prior`, not only `skill`, for families with train data.
   `uniform_joint` is 0 by definition and the oracle 1. Compare models against these rows, not only against 0.
 - **Overlap with decider training.** 10 realcoh sources are flagged `in_decider_train`: gold_news, bgl_logs,
   hdfs_logs, symptoms, tos, ledgar, climate, med_ru, code_defects, student_answers. They appear in decider's
@@ -289,9 +311,8 @@ Verify the data with `python tools/checksums.py` (or `cd data && sha256sum -c CH
 
 ## TODO before release
 
-- [ ] Resync `bookiebench/metrics`, `bookiebench/sims/release.py` and `data/release/sims_manifest.json` after the
-      upstream group re-split and metrics changes (`python tools/sync_upstream.py --src <upstream> --data`). Then
-      update the groups and metrics sections, rerun the reference rows, and regenerate checksums.
+- [ ] Resync `data/release/realcoh` after the upstream e-mail masking (the realcoh code is already synced:
+      `rebuild` now masks e-mails, so ids_only rebuilds match only after the data sync).
 - [ ] Add `data/release/stress/` once the stress manifest has the judge-2 field (see `data/release/stress/TODO.md`).
 - [ ] Fill `LEADERBOARD.md` from the upstream release leaderboard.
 - [ ] Decide on hosting for the data (about 113 MB in git now; consider LFS or a dataset hub) (name check: `docs/NAME_CHECK.md`).

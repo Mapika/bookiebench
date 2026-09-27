@@ -554,3 +554,18 @@ def test_release_one_instance():
     # a banned key forces a redraw
     line2, k2, a2, *_ = _one("v1", "urn", "test", 3, 0, 0.0, set(k))
     assert a2 > a and k2 != k
+
+
+def test_release_holdout_plan():
+    from bookiebench.sims.release import HOLDOUT_TRAIN, plan
+    jobs = plan()
+    groups = {}
+    for pack, fam, split, n, nuis, rel, group, train_rel in jobs:
+        groups.setdefault(fam, set()).add((split, group))
+    for fam in HOLDOUT_TRAIN:
+        assert ("train", "keys_only") in groups[fam] and ("dev", "new_mechanics") in groups[fam]
+    nm = {f for f, g in groups.items() if any(x[1] == "new_mechanics" for x in g)}
+    assert nm == HOLDOUT_TRAIN | {"genetics", "tracking"} and len(nm) == 11
+    written_train = {f for f, g in groups.items() if ("train", "train") in g}
+    assert not (written_train & nm)
+    assert len({f for f, g in groups.items() if any(x[1] == "in_family_v2" for x in g)}) == 13

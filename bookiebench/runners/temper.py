@@ -78,8 +78,10 @@ def fit(pred_dir, data_dir):
 def apply(pred_dir, t, out_dir=None, name=None):
     src = Path(pred_dir); name = name or f"{src.name}-T{t:.3g}"
     out = Path(out_dir or src.parent / name); out.mkdir(parents=True, exist_ok=True)
-    for f in src.glob("*.jsonl"):
-        with open(out / f.name, "w") as g:
+    for f in src.rglob("*.jsonl"):                             # recursive: stress/<transform>/ keeps its layout
+        dst = out / f.relative_to(src)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        with open(dst, "w") as g:
             for line in open(f):
                 p = json.loads(line); p["model"] = name
                 p["answers"] = {k: rescale(v, t) for k, v in p["answers"].items()}

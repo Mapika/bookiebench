@@ -14,6 +14,7 @@ from bookiebench.realcoh.build_v2 import instance_variables
 from bookiebench.realcoh.provenance import DECIDER_PRIVATE, DECIDER_PUBLIC, DROPPED, PROVENANCE, decider_references
 from bookiebench.realcoh.queries_v2 import make_queries_v2
 from bookiebench.realcoh.sources import PINNED
+from bookiebench.realcoh.build_v2 import EMAIL as EMAIL_RE
 from bookiebench.realcoh.sources_v2 import SOURCES_V2
 from bookiebench.runners import core
 
@@ -109,6 +110,12 @@ def test_review_fixes_in_specs():
     from bookiebench.realcoh.sources_v2 import answer_is_integer as z                               # R12
     assert [z(x) for x in ["4", "5\\text{ cm}", "1{,}000", "\\$25", "x=3", "\\frac{8}{4}", "2^{10}", "90^\\circ", "\\text{13}"]] == [True] * 9
     assert [z(x) for x in ["\\frac{1}{2}", "\\text{(C)}", "2\\sqrt{3}", "(1,2)", "0.5"]] == [False] * 5
+
+
+def test_email_masking():
+    from bookiebench.realcoh.build_v2 import mask_emails
+    t = mask_emails("Notices to notices@hcwco.com or M.Holubiak@citius-pharma.co.uk, not to @handle or a@b")
+    assert "@hcwco" not in t and "citius" not in t and t.count("[EMAIL]") == 2 and "@handle" in t
 
 
 def test_ssh_masking():
@@ -301,6 +308,7 @@ def test_built_v2_files():
         assert len(set(ev)) == 200
         texts |= set(ev)
         for r in rows:
+            assert not EMAIL_RE.search(r["steps"][0]["evidence"]), r["id"]
             ref = r["meta"]["source_ref"]
             assert ref["dataset"] and ref["revision"] and ref["file"] and len(ref) > 3, ref
             assert ref["revision"] == PINNED[ref["dataset"]], ref                 # rebuilds read the pinned snapshot
@@ -337,6 +345,20 @@ def test_built_leak_fixes():
     for r in _built("forecast_news"):                               # R12: dated, public actors only
         assert r["steps"][0]["evidence"].startswith("Published: ")
     assert all(not r["gold"] for r in _built("support_chat"))        # R9
+
+
+def test_release_has_no_emails():
+    rel = os.path.join(ROOT, "data", "release", "realcoh")
+    if not os.path.exists(os.path.join(rel, "manifest.json")):
+        pytest.skip("release not built")
+    import re
+    loose = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+    for f in os.listdir(rel):
+        if f.endswith(".jsonl"):
+            for l in open(os.path.join(rel, f)):
+                ev = json.loads(l)["steps"][0]["evidence"]
+                assert ev is None or not loose.search(ev), f
+    assert "[EMAIL]" in open(os.path.join(rel, "NOTICE.md")).read()
 
 
 @pytest.mark.skipif(not HAVE_CACHE, reason="needs the HF cache")

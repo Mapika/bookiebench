@@ -28,13 +28,11 @@ need sign-off or depend on pending upstream changes.
   |---|---|---|---|
   | in_family (`test/`) | 7 | 2,100 | 17,789 |
   | prior (`test_prior/`) | 2 | 600 | 5,007 |
+  | in_family_v2 (13 pack `dev/` families with train data) | 13 | 3,900 | 32,167 |
   | surface_transfer (`heldout/`) | 4 | 1,200 | 10,236 |
-  | new_mechanics (`val/` + pack `dev/`) | 24 | 7,200 | 59,560 |
+  | new_mechanics (`val/` + 9 pack `dev/` families never in train) | 11 | 3,300 | 27,393 |
   | realcoh | 25 sources | 5,000 | 110,000 (all queries) |
-
-  TODO(groups): upstream is re-splitting new_mechanics into `in_family_v2` (13 families) and `new_mechanics`
-  (val + 9 families with no train data). Eval files are unchanged.
-- **Not shipped but regenerable.** The train split is not shipped: 31 files, 780,000 instances. Regenerate it with
+- **Not shipped but regenerable.** The train split is not shipped: 22 files, 600,000 instances, about 3.8 GB. Regenerate it with
   `bookiebench generate --train-only`. It is deterministic, and prefixes were verified byte-identical against the
   upstream build. Leaderboard test editions are generated from secret seeds (`scripts/make_hidden_test.py`).
 - **Pending.** The stress pack: 21 transforms of the 11 v1 test/heldout families (see
@@ -111,7 +109,7 @@ references and hashes are.
   - Diagnosing where incoherence comes from, via the stress transforms and the query relation tags.
   - Tracking progress on a leaderboard with hidden editions.
 - **Training.** The train split exists so models can be trained on these worlds. Report results on groups with no
-  train data separately (`new_mechanics` after the re-split). Treat `surface_transfer` as surface transfer only.
+  train data separately (`new_mechanics`). Treat `surface_transfer` as surface transfer only.
 - **Not intended.**
   - Claims about real-world domain knowledge. The simulators use invented entities and stated parameters.
   - Medical, legal or financial decisions from any realcoh-derived output.

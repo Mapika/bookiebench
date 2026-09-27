@@ -30,7 +30,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 HF_HUB = os.path.join(os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface")), "hub")
-PUBLIC_SRC = os.environ.get("DECIDER_SRC", "")  # optional local checkout of the public decider repo
+PUBLIC_SRC = os.environ.get("DECIDER_SRC", "")  # optional checkout of the public decider repo
 
 
 def resolve_snapshot(model):

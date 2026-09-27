@@ -19,8 +19,8 @@ from __future__ import annotations
 import os
 import re
 
-DECIDER_PUBLIC = os.environ.get("BOOKIEBENCH_DECIDER_PUBLIC", "")  # decider-public/decider checkout (optional audit)
-DECIDER_PRIVATE = os.environ.get("BOOKIEBENCH_DECIDER_PRIVATE", "")  # private mixture code (maintainers only)
+DECIDER_PUBLIC = os.environ.get("BOOKIEBENCH_DECIDER_PUBLIC", "")  # optional audit
+DECIDER_PRIVATE = os.environ.get("BOOKIEBENCH_DECIDER_PRIVATE", "")  # maintainers only
 
 
 def P(dataset, license, release_mode, in_decider_train, decider_note, likely_pretraining, pretraining_note, notice=None):

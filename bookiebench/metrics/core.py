@@ -23,8 +23,13 @@ Conventions
 - `skill` = mean over families of 1 - KL/KL_ref, where KL_ref is the KL of the evidence-blind uniform_joint reference
   (uniform over joint cells, every query answered from it) on the same queries, computed analytically per instance.
   `skill_marg` / `skill_bin` do the same for kl_marg / kl_bin. skill <= 0 means no better than reading nothing.
-- `coh_valid` = 1 if skill > 1e-6 else 0; `dutch_inf` = dutch when coh_valid, else None ("–"): coherence is only
-  informative for a model that uses the evidence (uniform_joint is perfectly coherent).
+- `skill_prior` = mean over families of 1 - KL/KL_prior, KL_prior = the best (lowest mean KL on that family) of
+  uniform_joint, ref:label_prior and ref:template_uj, fitted on train (refs.PriorTables). Families of groups in
+  refs.PRIOR_FALLBACK_GROUPS (new_mechanics) and procedural families (randbn, randhmm) use uniform_joint only. None when no prior tables are given.
+- `coh_valid` = 1 iff skill >= SKILL_GATE (0.05) and sens >= SENS_GATE (0.05; the sens condition is skipped where sens
+  is undefined, i.e. no mart_var). Both gates are arguments of `aggregate` / `build_report` and CLI flags.
+  `dutch_inf` = dutch when coh_valid, else None ("–"): coherence is only informative for a model that uses the
+  evidence (uniform_joint is perfectly coherent).
 - `sens` (evidence sensitivity) = 1 - sum_k |dm_k - de_k|_1 / sum_k |de_k|_1 over consecutive steps of the mart_var
   marginal (dm = model change, de = exact change), pooled over the group: 1 for the oracle, 0 for a predictor that
   ignores the evidence, < 0 for changes worse than none. Missing step answers count as uniform.
@@ -43,18 +48,19 @@ import numpy as np
 
 from .dutch import dutch_book
 from .exact import exact_answer, is_final, joint_at, query_step
-from .refs import uniform_joint, with_joint
+from .refs import PRIOR_NAMES, prior_answers, uniform_joint, uses_uniform_fallback, with_joint
 
 EPS = 1e-6
 ALPHAS = (0.1, 0.2)
 ECE_BINS = 15
 
 EXPLOIT_DELTA = 0.01
-SKILL_EPS = 1e-6  # skill must exceed this to count as informative (uniform_joint scores 0 up to rounding)
+SKILL_GATE = 0.05  # coh_valid needs skill >= SKILL_GATE ...
+SENS_GATE = 0.05  # ... and sens >= SENS_GATE
 DUTCH_KEYS = ("dutch", "dutch_norm", "dutch_per_bet", "dutch@0.005", "dutch@0.01", "dutch_ans")
 
 METRIC_COLUMNS = [
-    "answered_frac", "skill", "kl", "kl_marg", "kl_bin", "kl_avgperm", "sens", "logscore", "acc", "ece",
+    "answered_frac", "skill", "skill_prior", "kl", "kl_marg", "kl_bin", "kl_avgperm", "sens", "logscore", "acc", "ece",
     "coh_valid", "dutch_inf", "dutch", "dutch_per_bet", "dutch@0.005", "dutch_frac_exploitable",
     "optperm", "evperm", "mart", "para",
     "cover@0.1", "size@0.1", "cover@0.2", "size@0.2",
@@ -162,7 +168,7 @@ def _var_options(inst: dict, name: str) -> list:
     return []
 
 
-def evaluate_instance(inst: dict, variants: dict[str, dict] | None) -> dict:
+def evaluate_instance(inst: dict, variants: dict[str, dict] | None, prior=None, group: str | None = None) -> dict:
     """variants: variant name -> prediction dict. A missing `base` variant scores the instance as fully unanswered."""
     variants = variants or {}
     base = variants.get("base")
@@ -177,6 +183,14 @@ def evaluate_instance(inst: dict, variants: dict[str, dict] | None) -> dict:
     qby = {q["id"]: q for q in inst["queries"]}
     has_joint = has_exact_joint(inst)
     uj = with_joint(inst, uniform_joint(inst)) if has_joint else None
+    rec["group"] = group
+    pri = {}
+    fallback = uses_uniform_fallback(inst, group=group)
+    rec["prior_fallback"] = fallback and prior is not None  # skill_prior floor = uniform_joint here
+    if prior is not None and has_joint and not fallback:
+        for name in PRIOR_NAMES:
+            pri[name] = prior_answers(inst, name, prior)
+            rec[f"kl_pr_{name}"] = []
     optperms = [v.get("answers") or {} for k, v in variants.items() if k.startswith("optperm:")]
     filled: dict[str, np.ndarray] = {}
     exact: dict[str, np.ndarray] = {}
@@ -194,6 +208,8 @@ def evaluate_instance(inst: dict, variants: dict[str, dict] | None) -> dict:
                     exact[q["id"]] = ex
                     rec["kl_marg"].append(kl_vec(ex, a))
                     rec["kl_ref_marg"].append(kl_vec(ex, exact_answer(uj, q)))
+                    for name, pa in pri.items():
+                        rec[f"kl_pr_{name}"].append(kl_vec(ex, pa[q["id"]]))
             if is_final(inst, q) and q["var"] in gold and gold[q["var"]] is not None:
                 rec["marg"].append(_norm_vec(a).tolist() + [int(gold[q["var"]])])
         else:
@@ -203,6 +219,8 @@ def evaluate_instance(inst: dict, variants: dict[str, dict] | None) -> dict:
                     exact[q["id"]] = ex
                     rec["kl_bin"].append(kl_bern(float(ex[0]), float(a[0])))
                     rec["kl_ref_bin"].append(kl_bern(float(ex[0]), float(exact_answer(uj, q)[0])))
+                    for name, pa in pri.items():
+                        rec[f"kl_pr_{name}"].append(kl_bern(float(ex[0]), float(pa[q["id"]][0])))
         if optperms and q["id"] in exact:
             alts = [_answer(o, q["id"]) for o in optperms]
             alts = [x for x in alts if x is not None and x.size == a.size]
@@ -287,12 +305,13 @@ def evaluate_instance(inst: dict, variants: dict[str, dict] | None) -> dict:
 
 
 def evaluate(instances: dict[str, dict], predictions: dict[str, dict[str, dict]],
-             splits=None) -> tuple[list[dict], dict]:
+             splits=None, prior=None, groups: dict | None = None) -> tuple[list[dict], dict]:
     """Iterate over the dataset, not over predicted ids.
 
     instances: id -> instance; predictions: id -> variant -> prediction. `splits`: the splits to score; by default
     every split in which the model predicted at least one instance. Every instance of those splits is scored, and
-    those without a base prediction count as fully missing. Returns (records, coverage info)."""
+    those without a base prediction count as fully missing. `prior`: refs.PriorTables for skill_prior; `groups`:
+    "split/family" -> group (see loading.load_groups). Returns (records, coverage info)."""
     if splits is None:
         splits = {instances[i].get("split", "?") for i in predictions if i in instances}
     splits = set(splits)
@@ -301,7 +320,8 @@ def evaluate(instances: dict[str, dict], predictions: dict[str, dict[str, dict]]
     for iid, inst in instances.items():
         if inst.get("split", "?") not in splits:
             continue
-        r = evaluate_instance(inst, predictions.get(iid))
+        g = group_of(inst, groups)
+        r = evaluate_instance(inst, predictions.get(iid), prior=prior, group=g)
         n_missing_inst += r["pred_missing"]
         recs.append(r)
     info = {"n_pred_ids": len(predictions),
@@ -325,7 +345,21 @@ def _nan_none(x):
     return None if x is None or (isinstance(x, float) and not np.isfinite(x)) else x
 
 
-def aggregate(recs: list[dict]) -> dict:
+def group_of(inst: dict, groups: dict | None) -> str | None:
+    if groups is None:
+        return None
+    return groups.get(f"{inst.get('split')}/{inst.get('family')}") or default_group(inst.get("split", "?"))
+
+
+def default_group(split: str) -> str:
+    if str(split).startswith("realcoh"):
+        return "realcoh"
+    if split == "stress":
+        return "stress"
+    return "other"
+
+
+def aggregate(recs: list[dict], skill_gate: float = SKILL_GATE, sens_gate: float = SENS_GATE) -> dict:
     out: dict = {"n": len(recs)}
     klm = [x for r in recs for x in r["kl_marg"]]
     klb = [x for r in recs for x in r["kl_bin"]]
@@ -344,6 +378,19 @@ def aggregate(recs: list[dict]) -> dict:
             if m and ref and np.mean(ref) > 1e-12:
                 sk.append(1.0 - np.mean(m) / np.mean(ref))
         out[f"skill{suffix}"] = float(np.mean(sk)) if sk else None
+    sk = []
+    for fr in fams.values():
+        m = [x for r in fr for k in ("marg", "bin") for x in r[f"kl_{k}"]]
+        refs = [_mean([x for r in fr for k in ("marg", "bin") for x in r.get(f"kl_ref_{k}", [])])]
+        for name in PRIOR_NAMES:
+            xs = [x for r in fr for x in r.get(f"kl_pr_{name}", [])]
+            if xs and len(xs) == len(m):
+                refs.append(_mean(xs))
+        refs = [x for x in refs if x is not None]
+        has_prior = any(f"kl_pr_{PRIOR_NAMES[0]}" in r or r.get("prior_fallback") for r in fr)
+        if m and refs and has_prior and min(refs) > 1e-12:
+            sk.append(1.0 - np.mean(m) / min(refs))
+    out["skill_prior"] = float(np.mean(sk)) if sk else None
     den = sum(r.get("sens_den", 0.0) for r in recs)
     out["sens"] = 1.0 - sum(r.get("sens_num", 0.0) for r in recs) / den if den > 1e-12 else None
     items = [(r["id"], np.asarray(m[:-1]), int(m[-1])) for r in recs for m in r["marg"]]
@@ -361,7 +408,8 @@ def aggregate(recs: list[dict]) -> dict:
     key = f"dutch@{EXPLOIT_DELTA}"
     out["dutch_frac_exploitable"] = _mean([float(r[key] > 1e-6) for r in recs if r.get(key) is not None])
     out["n_missing_inst"] = sum(bool(r.get("pred_missing")) for r in recs)
-    out["coh_valid"] = None if out["skill"] is None else float(out["skill"] > SKILL_EPS)
+    out["coh_valid"] = None if out["skill"] is None else float(
+        out["skill"] >= skill_gate and (out["sens"] is None or out["sens"] >= sens_gate))
     out["dutch_inf"] = out["dutch"] if out["coh_valid"] else None
     for k in ("optperm", "evperm", "mart", "para"):
         out[k] = _mean([x for r in recs for x in r[k]])
@@ -374,16 +422,23 @@ def aggregate(recs: list[dict]) -> dict:
     return out
 
 
-def build_report(recs: list[dict]) -> dict:
-    by_split, by_family = defaultdict(list), defaultdict(list)
+def build_report(recs: list[dict], skill_gate: float = SKILL_GATE, sens_gate: float = SENS_GATE) -> dict:
+    by_split, by_family, by_group = defaultdict(list), defaultdict(list), defaultdict(list)
     for r in recs:
         by_split[r["split"]].append(r)
         by_family[f"{r['split']}/{r['family']}"].append(r)
-    return {
-        "overall": aggregate(recs),
-        "by_split": {k: aggregate(v) for k, v in sorted(by_split.items())},
-        "by_family": {k: aggregate(v) for k, v in sorted(by_family.items())},
+        if r.get("group") is not None:
+            by_group[r["group"]].append(r)
+    agg = lambda v: aggregate(v, skill_gate, sens_gate)  # noqa: E731
+    rep = {
+        "overall": agg(recs),
+        "by_split": {k: agg(v) for k, v in sorted(by_split.items())},
+        "by_family": {k: agg(v) for k, v in sorted(by_family.items())},
     }
+    if by_group:
+        rep["by_group"] = {k: agg(v) for k, v in sorted(by_group.items())}
+    rep["gates"] = {"skill": skill_gate, "sens": sens_gate}
+    return rep
 
 
 def markdown_table(rows: list[tuple[str, dict]], columns=None, label: str = "group") -> str:

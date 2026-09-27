@@ -147,6 +147,22 @@ def _chunk(args):
 # plan
 # ----------------------------------------------------------------------------------------------------------------------
 
+# v2 pack families held out of train entirely (final shortcuts review: dev families with a train file are not "new").
+# Their train split is still generated IN MEMORY during a build (group "keys_only": never written, no keys file, no
+# manifest entry), only so that their dev files keep being deduped against it and stay byte-identical.
+HOLDOUT_TRAIN = {"epidemic", "forensic", "raters", "recapture", "montyhall", "search", "queue",  # mechanics
+                 "prog_domain",  # programs
+                 "tab_stream"}  # tables
+GROUP_DESC = {
+    "train": "training data",
+    "in_family": "v1 train families, unseen worlds (test/)",
+    "prior": "procedural prior families randbn/randhmm, unseen worlds (test_prior/)",
+    "surface_transfer": "v1 heldout: re-skinned versions of the v1 train mechanics (heldout/)",
+    "in_family_v2": "v2 pack dev families whose train file is in train/ (unseen worlds of trained mechanics)",
+    "new_mechanics": "families with NO train data: val (genetics, tracking) + the HOLDOUT_TRAIN v2 dev families",
+}
+
+
 def plan(n_scale=1.0, packs=("v1", "mechanics", "programs", "tables")):
     from . import HELDOUT_FAMILIES, PRIOR_FAMILIES, TRAIN_FAMILIES, VAL_FAMILIES
     S = lambda n: max(1, int(round(n * n_scale)))  # noqa: E731
@@ -167,8 +183,10 @@ def plan(n_scale=1.0, packs=("v1", "mechanics", "programs", "tables")):
             continue
         mod = __import__(f"bookiebench.sims.packs.{pack}", fromlist=["FAMILIES"])
         for f in mod.FAMILIES:
-            jobs.append((pack, f, "train", S(20000), 0.0, f"train/{f}.jsonl", "train", None))
-            jobs.append((pack, f, "dev", S(300), 0.0, f"{pack}/dev/{f}.jsonl", "new_mechanics", f"train/{f}.jsonl"))
+            held = f in HOLDOUT_TRAIN
+            jobs.append((pack, f, "train", S(20000), 0.0, f"train/{f}.jsonl", "keys_only" if held else "train", None))
+            jobs.append((pack, f, "dev", S(300), 0.0, f"{pack}/dev/{f}.jsonl",
+                         "new_mechanics" if held else "in_family_v2", f"train/{f}.jsonl"))
     return jobs
 
 
@@ -234,16 +252,17 @@ def main(argv=None):
     jobs.sort(key=lambda j: j[2] != "train")  # train first: eval splits dedupe against it
     train_keys: dict[str, set] = {}
     manifest = {"template_version": TV, "seed": args.seed, "degenerate_cap": DEGEN_CAP, "max_attempts": MAX_ATTEMPTS,
-                "groups": {"train": "training data", "in_family": "v1 train families, unseen worlds",
-                           "prior": "procedural prior families, unseen worlds",
-                           "surface_transfer": "v1 heldout: re-skinned versions of the train mechanics",
-                           "new_mechanics": "val + v2 pack dev families (mechanics not in the v1 train set)"},
-                "files": {}}
+                "groups": dict(GROUP_DESC), "holdout_train": sorted(HOLDOUT_TRAIN), "files": {}}
     old = out / "sims_manifest.json"
     if old.exists():  # merge: files built by an earlier (partial) run stay described
         prev = json.loads(old.read_text())
         if prev.get("template_version") == TV and prev.get("seed") == args.seed:
             manifest["files"].update(prev.get("files", {}))
+    for _p, _f, _s, _n, _nu, _rel, _g, _t in plan(args.n_scale, args.packs):  # current grouping wins over old entries
+        if _g == "keys_only":
+            manifest["files"].pop(_rel, None)
+        elif _rel in manifest["files"]:
+            manifest["files"][_rel]["group"] = _g
     keydir = out / ".train_keys"
     with Pool(args.workers, initializer=_init_worker) as pool:
         for pack, fam, split, n, nuis, rel, group, train_rel in jobs:
@@ -251,7 +270,8 @@ def main(argv=None):
             banned = train_keys.get(train_rel) if train_rel else None
             kfile = keydir / (Path(rel).stem + ".txt")
             prev = manifest["files"].get(rel, {})
-            if (split == "train" and args.reuse_train and (out / rel).exists() and kfile.exists()
+            keys_only = group == "keys_only"
+            if (split == "train" and not keys_only and args.reuse_train and (out / rel).exists() and kfile.exists()
                     and prev.get("n") == n and prev.get("nuisance") == nuis and prev.get("pack") == pack
                     and sum(1 for _ in open(out / rel, "rb")) == n):
                 train_keys[rel] = set(kfile.read_text().split())
@@ -260,6 +280,14 @@ def main(argv=None):
             step = 50 if split != "train" else 250
             chunks = [(pack, fam, split, lo, min(n, lo + step), args.seed, nuis, banned) for lo in range(0, n, step)]
             path = out / rel
+            if keys_only:
+                ks = set()
+                for res in pool.imap(_chunk, chunks):
+                    for line, k, *_ in res:
+                        ks.update(k)
+                train_keys[rel] = ks
+                print(f"{rel:38s} keys only (held out of train; {len(ks)} keys, {time.time() - t0:.1f}s)", flush=True)
+                continue
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_name(path.name + ".partial")  # renamed only when complete: no half file is ever reused
             ks, seen, stats = set(), set(), {"attempts": 0, "dedupe_train": 0, "dedupe_split": 0, "fallback": 0}

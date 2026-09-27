@@ -37,7 +37,7 @@ def load_instances(data: str | Path, splits=None) -> dict[str, dict]:
         for s in sorted(splits):
             dirs = [data / s] if (data / s).is_dir() else [d for d in data.rglob(s) if d.is_dir()]
             if dirs:
-                files += sorted(f for d in dirs for f in d.glob("*.jsonl"))
+                files += sorted(f for d in dirs for f in d.rglob("*.jsonl"))
             else:  # no directory named after the split: peek at each file's first instance
                 files += [f for f in sorted(data.rglob("*.jsonl")) if _first_split(f) == s]
         files = sorted(set(files))
@@ -76,3 +76,24 @@ def load_predictions(results: str | Path) -> tuple[dict[str, dict[str, dict]], s
             model = model or p.get("model")
             preds.setdefault(p["id"], {})[p.get("variant", "base")] = p
     return preds, model or (results.name if results.is_dir() else results.stem)
+
+
+def load_groups(data: str | Path, manifest: str | Path | None = None) -> dict[str, str] | None:
+    """"split/family" -> group from the sims manifest (read at runtime; default <data>/sims_manifest.json).
+    Returns None when there is no manifest. Unlisted splits fall back in core.default_group (realcoh*, stress)."""
+    p = Path(manifest) if manifest else Path(data) / "sims_manifest.json"
+    if not p.is_file():
+        return None
+    with open(p) as f:
+        man = json.load(f)
+    out = {}
+    for key, e in (man.get("files") or {}).items():
+        if isinstance(e, dict) and e.get("group") and e.get("split") and e.get("family"):
+            out[f"{e['split']}/{e['family']}"] = e["group"]
+    return out
+
+
+def default_train(data: str | Path) -> Path:
+    """<data>/train when it exists, else data/train."""
+    p = Path(data) / "train" if Path(data).is_dir() else None
+    return p if p is not None and p.is_dir() else Path("data/train")

@@ -1,4 +1,4 @@
-"""BookieBench v2 `stress` pack: transforms over instances of ANY family (see BOOKIEBENCH_V2.md).
+"""BookieBench v2 `stress` pack: transforms over instances of ANY family (see HONESTBENCH_V2.md).
 
 A transform maps a source instance to a new one with the same world (variables' option indices, every step's joint,
 gold, mart_var, perms and the original queries' logical content unchanged) and new surface text; some add queries,

@@ -31,6 +31,7 @@ import hashlib
 import json
 import os
 import random
+import re
 from pathlib import Path
 
 from .queries_v2 import make_queries_v2
@@ -38,6 +39,12 @@ from .provenance import DROPPED, PROVENANCE
 from .sources_v2 import SOURCES_V2
 
 MAX_CELLS = 256
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+
+
+def mask_emails(text):
+    """Every state text, in every source, has e-mail addresses replaced by [EMAIL] (user decision, 2026-09-27)."""
+    return EMAIL.sub("[EMAIL]", text)
 
 
 def instance_variables(variables):
@@ -65,6 +72,7 @@ def build_source(name, n=200, seed=0):
     prov = PROVENANCE[name]
     out = []
     for i, (text, gold, ref) in enumerate(states):
+        text = mask_emails(text)
         qrng = random.Random(f"v2:{seed}:{name}:{i}")
         qs, para = make_queries_v2(qrng, variables, opts.get("templates"), opts.get("forecast", False))
         gold = {k: int(g) for k, g in gold.items() if g is not None}
@@ -125,6 +133,7 @@ def write_release(release_dir, built):
                                     likely_pretraining=prov["likely_pretraining"],
                                     sha256=hashlib.sha256(open(path, "rb").read()).hexdigest())
     man["dropped"] = DROPPED
+    man["text_masking"] = "e-mail addresses -> [EMAIL] in every state text (all sources)"
     from .sources import PINNED
     man["revisions"] = {PROVENANCE[k]["dataset"].split(" (")[0]: PINNED[PROVENANCE[k]["dataset"].split(" (")[0]]
                         for k in man["sources"]}
@@ -136,6 +145,7 @@ def write_release(release_dir, built):
                 "`ids_only` sources ship without their text; rebuild it from the Hugging Face datasets with\n"
                 "`python -m bookiebench.realcoh.build_v2 rebuild --release <this dir> --out <dir>` (needs the datasets in the local HF cache,\n"
                 "at the revisions pinned in manifest.json `revisions`: `huggingface-cli download <repo> --repo-type dataset --revision <rev>`).\n\n"
+                "E-mail addresses in all state texts are masked as `[EMAIL]`, in every source (`rebuild` applies the same masking).\n\n"
                 "| source | dataset | licence | release mode | in decider training | likely in pretraining |\n|---|---|---|---|---|---|\n")
         for name in sorted(man["sources"]):
             p = PROVENANCE[name]

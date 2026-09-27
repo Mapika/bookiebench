@@ -23,7 +23,7 @@ PKG_DIRS = ["sims", "metrics", "realcoh"]
 RUNNERS = ["__init__.py", "core.py", "logit_runner.py", "decider_runner.py", "julia_runner.py", "api_runner.py",
            "temper.py", "leaderboard.py", "release_subset.py"]
 LOCAL_ONLY = {"bookiebench/cli.py", "bookiebench/runners/baselines.py"}
-SKIP_TESTS = {"test_heads.py"}                          # tests of the (separate) trained-heads model
+SKIP_TESTS = {"test_heads.py", "conftest.py"}          # trained-heads tests; our local conftest.py
 DATA_DIRS = ["test", "test_prior", "heldout", "val", "mechanics/dev", "programs/dev", "tables/dev"]
 
 HF_DEFAULT = 'os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface"))'
@@ -74,6 +74,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--src", required=True, help="upstream repo root (contains honest/ and tests/)")
     ap.add_argument("--data", action="store_true", help="also copy data/release metadata and eval/dev/realcoh files")
+    ap.add_argument("--no-realcoh", action="store_true", help="with --data: leave data/release/realcoh untouched")
     a = ap.parse_args(argv)
     src = Path(a.src)
     if not (src / "honest" / "sims").is_dir():
@@ -88,7 +89,7 @@ def main(argv=None) -> int:
     if a.data:
         rel = src / "data" / "release"
         dst = ROOT / "data" / "release"
-        for d in DATA_DIRS + ["realcoh"]:
+        for d in DATA_DIRS + ([] if a.no_realcoh else ["realcoh"]):
             (dst / d).mkdir(parents=True, exist_ok=True)
             for f in sorted((rel / d).glob("*")):
                 if f.is_file():

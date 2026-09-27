@@ -580,4 +580,158 @@ def test_compare_includes_reference_rows(tmp_path, worlds):
     assert "| oracle |" in inf and "ref:uniform_joint" not in inf
     p = subprocess.run([py, "-m", "bookiebench.metrics.compare", str(results / "oracle"), "--data", str(data),
                         "--train", str(tmp_path / "missing")], cwd=ROOT, capture_output=True, text=True, check=True)
-    assert "ref:indep_joint skipped" in p.stdout
+    assert "ref:indep_joint, ref:prior and skill_prior skipped" in p.stdout  # phase 4 wording
+
+
+# ============================================================================ phase 4: text-keyed refs, prior, gate, groups
+COLOURS = ["red", "green", "blue"]
+
+
+def _shuffled_world(rng, iid, split="test", family="skew"):
+    """Two variables whose options are shuffled per instance (like meta.option_perm); the colour law is skewed by
+    option TEXT (red >> green >> blue), so a position-keyed prior washes out while a text-keyed one does not."""
+    pc = rng.dirichlet(np.array([14.0, 4.0, 2.0]))  # by text
+    ps = rng.dirichlet([3.0, 3.0])
+    perm = rng.permutation(3)
+    opts = [COLOURS[i] for i in perm]
+    j = np.outer(pc[perm], ps)
+    red = opts.index("red")
+    return {"id": iid, "family": family, "split": split, "meta": {"option_perm": perm.tolist()},
+            "variables": [{"name": "colour", "options": opts}, {"name": "size", "options": ["small", "large"]}],
+            "steps": [{"evidence": "e", "joint": j.tolist()}], "prelude": "",
+            "gold": {"colour": int(rng.choice(3, p=pc[perm])), "size": int(rng.choice(2, p=ps))},
+            "queries": [{"id": "q0", "kind": "marginal", "var": "colour", "options": opts, "text": "Which colour is it?"},
+                        {"id": "q1", "kind": "marginal", "var": "size", "options": ["small", "large"],
+                         "text": "Which size is it?"},
+                        {"id": "q2", "kind": "noul", "event": {"colour": [red], "size": [0]},
+                         "text": "Is it red and small?"},
+                        {"id": "q3", "kind": "noul", "event": {"colour": [red]}, "neg": True,
+                         "text": "Is it not red?"}]}
+
+
+@pytest.fixture(scope="module")
+def shuffled(tmp_path_factory):
+    rng = np.random.default_rng(21)
+    root = tmp_path_factory.mktemp("shuf")
+    train = root / "train"
+    train.mkdir()
+    with open(train / "skew.jsonl", "w") as f:
+        for i in range(400):
+            f.write(json.dumps(_shuffled_world(rng, f"skew-train-{i}", "train")) + "\n")
+    evals = {w["id"]: w for w in (_shuffled_world(rng, f"skew-test-{i}") for i in range(200))}
+    return train, evals
+
+
+def _ref_overall(evals, name, table, prior=None, groups=None):
+    from bookiebench.metrics.refs import ref_predictions
+    recs, _ = evaluate(evals, ref_predictions(evals, name, table, groups), prior=prior, groups=groups)
+    return build_report(recs)["overall"]
+
+
+def test_indep_joint_keyed_by_option_text(shuffled):
+    from bookiebench.metrics.refs import IndepTable, fit_indep
+    train, evals = shuffled
+    t = fit_indep(train)
+    m = t.marginal("skew", {"name": "colour", "options": ["blue", "red", "green"]})
+    assert m[1] > 0.55 and m[0] < 0.2  # follows the text, whatever its position
+    o = _ref_overall(evals, "indep_joint", t)
+    assert o["skill"] > 0.2 and o["dutch"] < 1e-7
+    # the old position-keyed table: average marginal per position is ~flat under shuffling -> no skill
+    pos = IndepTable()
+    pos.fam = {("skew", "colour", c, 3): 1 / 3 for c in COLOURS}
+    assert _ref_overall(evals, "indep_joint", pos)["skill"] < o["skill"] - 0.2
+
+
+def test_prior_refs_and_skill_prior(shuffled):
+    from bookiebench.metrics.refs import fit_prior
+    train, evals = shuffled
+    T = fit_prior(train, cache=False)
+    lab = _ref_overall(evals, "label_prior", T, prior=T)
+    tmp = _ref_overall(evals, "template_uj", T, prior=T)
+    uj = _ref_overall(evals, "uniform_joint", None, prior=T)
+    assert lab["skill_marg"] > 0.2 and tmp["skill"] > 0
+    # skill_prior is measured against the best of uniform_joint / label / template, so the best prior scores ~0
+    assert max(lab["skill_prior"], tmp["skill_prior"]) == pytest.approx(0.0, abs=1e-9)
+    assert uj["skill_prior"] < 0 and uj["skill"] == pytest.approx(0.0)
+    # exact answers: skill_prior = 1; noisy answers: skill_prior < skill
+    recs, _ = evaluate(evals, {i: {"base": {"answers": _exact_answers(w)}} for i, w in evals.items()}, prior=T)
+    assert build_report(recs)["overall"]["skill_prior"] == pytest.approx(1.0)
+    rng = np.random.default_rng(0)
+    noisy = {i: {"base": {"answers": {k: list(np.clip(np.array(v) + rng.normal(0, .05, len(v)), .01, .99))
+                                      for k, v in _exact_answers(w).items()}}} for i, w in evals.items()}
+    o = build_report(evaluate(evals, noisy, prior=T)[0])["overall"]
+    assert o["skill_prior"] < o["skill"]
+    # new_mechanics: the prior falls back to uniform_joint, so skill_prior == skill
+    groups = {"test/skew": "new_mechanics"}
+    o2 = build_report(evaluate(evals, noisy, prior=T, groups=groups)[0])["overall"]
+    assert o2["skill_prior"] == pytest.approx(o2["skill"])
+    fb = _ref_overall(evals, "label_prior", T, prior=T, groups=groups)
+    assert fb["skill"] == pytest.approx(0.0)
+
+
+def test_coherence_gate_needs_skill_and_sens(worlds):
+    from bookiebench.metrics import aggregate
+    from bookiebench.metrics.core import evaluate_instance
+    ws = worlds[:60]
+    # exact final-step answers but the step-k martingale marginals frozen at the final answer: skill high, sens ~0
+    recs = []
+    for w in ws:
+        ans = _exact_answers(w)
+        fin = ans["qH"]
+        for q in w["queries"]:
+            if q.get("step") is not None:
+                ans[q["id"]] = fin
+        recs.append(evaluate_instance(w, {"base": {"answers": ans}}))
+    o = aggregate(recs)
+    assert o["skill"] > 0.3 and o["sens"] < 0.05
+    assert o["coh_valid"] == 0.0 and o["dutch_inf"] is None
+    lax = aggregate(recs, skill_gate=0.05, sens_gate=-10)
+    assert lax["coh_valid"] == 1.0 and lax["dutch_inf"] == pytest.approx(lax["dutch"])
+    strict = aggregate(recs, skill_gate=0.999, sens_gate=-10)
+    assert strict["coh_valid"] == 0.0
+
+
+def test_groups_from_manifest(tmp_path, worlds):
+    data, results = _write_fixture_tree(tmp_path, worlds[:45])
+    man = {"groups": {}, "files": {
+        "test/urnA.jsonl": {"split": "test", "family": "urnA", "group": "in_family"},
+        "test/urnB.jsonl": {"split": "test", "family": "urnB", "group": "in_family"},
+        "heldout/urnC.jsonl": {"split": "heldout", "family": "urnC", "group": "surface_transfer"}}}
+    (data / "sims_manifest.json").write_text(json.dumps(man))
+    from bookiebench.metrics.loading import load_groups
+    assert load_groups(data)["heldout/urnC"] == "surface_transfer"
+    from bookiebench.metrics.report import run as report_run
+    rep = report_run(results / "oracle", data, write=False, train=tmp_path / "none")
+    assert set(rep["by_group"]) == {"in_family", "surface_transfer"}
+    assert rep["by_group"]["in_family"]["n"] == 30
+    p = subprocess.run([sys.executable, "-m", "bookiebench.metrics.compare", str(results / "oracle"), str(results / "noisy"),
+                        "--data", str(data), "--train", str(tmp_path / "none"), "--recompute"],
+                       cwd=ROOT, capture_output=True, text=True, check=True)
+    assert "## group: in_family" in p.stdout and "## group: surface_transfer" in p.stdout
+    assert "informative coherence, group: in_family" in p.stdout
+
+
+def test_procedural_families_fall_back_to_uniform(shuffled):
+    """randbn / randhmm option words have random meanings: every train-fitted ref must answer uniform_joint there."""
+    from bookiebench.metrics.refs import PRIOR_FALLBACK_FAMILIES, fit_indep, fit_prior
+    assert {"randbn", "randhmm"} <= PRIOR_FALLBACK_FAMILIES
+    train, evals = shuffled
+    # relabel the skewed family as a procedural one, in train and eval alike
+    tr2 = train.parent / "train_proc"
+    tr2.mkdir(exist_ok=True)
+    with open(tr2 / "randbn.jsonl", "w") as f:
+        for line in open(train / "skew.jsonl"):
+            f.write(json.dumps(dict(json.loads(line), family="randbn")) + "\n")
+    ev = {i: dict(w, family="randbn") for i, w in evals.items()}
+    ti, T = fit_indep(tr2), fit_prior(tr2, cache=False)
+    for name, table in (("indep_joint", ti), ("label_prior", T), ("template_uj", T)):
+        o = _ref_overall(ev, name, table, prior=T)
+        assert o["skill"] == pytest.approx(0.0, abs=1e-12) and o["skill_prior"] == pytest.approx(0.0, abs=1e-12)
+    # a model's skill_prior on procedural families is measured against uniform_joint, i.e. equals skill
+    rng = np.random.default_rng(1)
+    noisy = {i: {"base": {"answers": {k: list(np.clip(np.array(v) + rng.normal(0, .05, len(v)), .01, .99))
+                                      for k, v in _exact_answers(w).items()}}} for i, w in ev.items()}
+    o = build_report(evaluate(ev, noisy, prior=T)[0])["overall"]
+    assert o["skill_prior"] == pytest.approx(o["skill"])
+    # the same data under a non-procedural family name does get a real prior
+    assert _ref_overall(evals, "indep_joint", fit_indep(train))["skill"] > 0.2

@@ -32,9 +32,17 @@ All notable changes to BookieBench are listed here. Versions follow semantic ver
   `DECIDER_SRC`, `BOOKIEBENCH_DECIDER_PUBLIC` / `_PRIVATE`. `HONEST_METRICS_OWN_EXACT` was renamed to
   `BOOKIEBENCH_METRICS_OWN_EXACT`.
 
+### Synced from upstream (metrics and groups)
+- Groups: `in_family_v2` (13 pack dev families with train data), and `new_mechanics` (val plus 9 pack families held
+  out of train permanently, `HOLDOUT_TRAIN`, 11 families). The train plan now has 22 files and 600k instances. The
+  eval files are byte-identical.
+- Metrics: `ref:prior` / `skill_prior` (the best of uniform_joint, label_prior and template_uj per family, with a
+  uniform fallback for new_mechanics and procedural families), a label-keyed `ref:indep_joint`, the coherence gate
+  skill ≥ 0.05 and sens ≥ 0.05, and group tables from the manifest.
+- realcoh code: e-mail masking (`[EMAIL]`). The realcoh data resync is pending, and
+  `test_release_has_no_emails` is marked xfail (strict) until then (`tests/conftest.py`).
+
 ### Pending before 0.1.0
-- Resync of the metrics (ref:prior / skill_prior, label-keyed ref:indep_joint, stricter coherence gate, manifest
-  group tables), the release plan and `sims_manifest.json` (group re-split: `in_family_v2`, and `new_mechanics`
-  with 9 families held out of train).
+- The realcoh data resync (LEDGAR e-mail masking).
 - The stress pack data, after the judge-2 manifest.
 - The leaderboard.

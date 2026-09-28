@@ -29,7 +29,26 @@ REL = ROOT / "results" / "release"
 SUB = REL / "_data" / "sub"
 STRESS_REL = ROOT / "data" / "release" / "stress"   # the release stress files: LLM transforms keep only judge-clean items
 STRESS_LABEL = {"lang_zh": "lang_zh (BETA: judges miss ~1/3 of zh negation flips)"}
-NO_STRESS = {"heads-hybrid-2b", "heads-decider-product"}   # filled in only if their stress runs exist
+NO_STRESS = {"heads-hybrid-2b", "heads-decider-product", "heads-hybrid-2b-v11a"}   # footnoted if their stress runs are missing
+# results/release dirs that are not leaderboard rows (the heads agent's v1.1 ablations and group-tempered variants)
+EXCLUDE = {"heads-hybrid-2b-v11", "heads-hybrid-2b-v11-Tfit", "heads-hybrid-2b-v11-group", "heads-hybrid-2b-v11b",
+           "heads-hybrid-2b-v11b-group", "heads-hybrid-2b-v10gate", "heads-hybrid-2b-v10gate-Tfit"}
+DISPLAY = {"heads-hybrid-2b": "heads-hybrid-2b-v1.0", "heads-hybrid-2b-v11a": "heads-hybrid-2b-v1.1"}
+V11_NOTE = ("v1.1 hybrid = decider-2b + coherent coupling + a sims-domain marginal adapter with a domain gate. Adapter "
+            "trained on train splits only (no HOLDOUT_TRAIN/val/eval); regression gate unchanged vs decider-2b "
+            "(acc 0.8017/0.7518).")
+V11_INFAM = " The adapter was trained on these families' train data (in-family for heads-hybrid-2b-v1.1)."
+
+
+def _excluded(name):
+    """EXCLUDE, plus any other heads-hybrid-2b-v1* dir than the released v1.1 (v11a): the heads agent's ablations."""
+    return name in EXCLUDE or (name.startswith("heads-hybrid-2b-v1") and name.removesuffix("-Tfit") != "heads-hybrid-2b-v11a")
+
+
+def D(m):
+    """Display name of a results/release dir (and of its -Tfit copy)."""
+    b = m.removesuffix("-Tfit")
+    return DISPLAY.get(b, b) + ("-Tfit" if m.endswith("-Tfit") else "")
 
 
 def _stress_release_ids(t):
@@ -98,7 +117,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     shutil.copy(ROOT / "data" / "release" / "sims_manifest.json", SUB / "sims_manifest.json")
     models = a.models or sorted(p.name for p in REL.iterdir() if p.is_dir() and not p.name.startswith("_")
-                                and any(p.glob("*.jsonl")))
+                                and any(p.glob("*.jsonl")) and not _excluded(p.name))
     with Pool(max(1, min(a.jobs, len(models)))) as pool:
         reps = dict(zip(models, pool.map(_report_fresh if a.recompute else _report, [str(REL / m) for m in models])))
     splits = sorted({s for r in reps.values() for s in r.get("by_split", {})})
@@ -109,7 +128,7 @@ def main(argv=None):
     info = {m: r["info"] for m, r in reps.items()}
     partial = {m for m, i in info.items() if i.get("n_missing_inst", 0) > 0.5 * max(i.get("n_evaluated", 1), 1)}
     full = [m for m in models if m not in partial]
-    J = {"models": models, "groups": {}, "stress": {}, "partial": sorted(partial), "notes": notes}
+    J = {"models": [D(m) for m in models], "dirs": {D(m): m for m in models}, "groups": {}, "stress": {}, "partial": sorted(partial), "notes": notes}
     md = ["# BookieBench release leaderboard (runners)", "",
           "Data: the shared subset `results/release/_data/sub` (`python -m bookiebench.runners.release_subset`): ≤100 "
           "instances per sims family (stress-paired ids first), 60 states per realcoh source, 30 stressed instances per "
@@ -130,13 +149,13 @@ def main(argv=None):
         md += ["| model | fitted factor t | absolute T | calibration KL raw → fitted | rule |", "|---|---|---|---|---|"]
         for m, v in json.load(open(temp)).items():
             T = v.get("temperature")
-            md.append(f"| {m} | {v['t_rel']:.3f} | {T:.3f} |" if isinstance(T, float) else f"| {m} | {v['t_rel']:.3f} | t × model default |")
+            md.append(f"| {D(m)} | {v['t_rel']:.3f} | {T:.3f} |" if isinstance(T, float) else f"| {D(m)} | {v['t_rel']:.3f} | t × model default |")
             md[-1] += f" {v['kl_cal_run']:.4f} → {v['kl_cal_fitted']:.4f} | {v.get('rule', 'per-answer')} |"
         md.append("")
     for g in ORDER:
         ref_rows = [(r["model"], r["by_group"][g]) for r in refs if g in r.get("by_group", {})
                     and (not r["model"].startswith("xref:") or g in XREF_GROUPS)]
-        rows = {m: reps[m]["by_group"][g] for m in full if g in reps[m].get("by_group", {})}
+        rows = {D(m): reps[m]["by_group"][g] for m in full if g in reps[m].get("by_group", {})}
         if not rows:
             continue
         n = next(iter(rows.values())).get("n")
@@ -148,6 +167,8 @@ def main(argv=None):
                                                           "model"), ""]
                 if title.startswith("tempered") and any(n.startswith("xref:") for n, _ in ref_rows):
                     md += [f"_{XREF_NOTE}_", ""]
+        if any(n.startswith("heads-hybrid-2b-v1.1") for n in rows):
+            md += [f"_{V11_NOTE}{V11_INFAM if g in XREF_GROUPS else ''}_", ""]
     cache = {}
     rcman = json.load(open(ROOT / "data" / "release" / "realcoh" / "manifest.json"))["sources"]
     rc = load_instances(SUB / "realcoh")
@@ -159,12 +180,14 @@ def main(argv=None):
         for m in full:
             p = {i: v for i, v in _preds(cache, m).items() if i in inst}
             if p:
-                rows[m + (" †" if flag and m.startswith("decider") else "")] = aggregate(evaluate(inst, p, splits={"realcoh2"})[0])
+                rows[D(m) + (" †" if flag and m.startswith("decider") else "")] = aggregate(evaluate(inst, p, splits={"realcoh2"})[0])
         J["groups"][label] = rows
         md += [f"## {label}", "", f"{len(srcs)} sources, {len(inst)} states: {', '.join(srcs)}", ""]
         for title, rr in _blocks(rows, list(rows)):
             if rr:
                 md += [f"**{title}**", "", markdown_table(rr, RC_COLS, "model"), ""]
+        if any(n.startswith("heads-hybrid-2b-v1.1") for n in rows):
+            md += [f"_{V11_NOTE}_", ""]
     base_inst = {**load_instances(SUB / "test"), **load_instances(SUB / "heldout")}
     md += ["## stress — paired deltas (stressed − unstressed, same source ids)", "",
            "Cell: Δskill / Δacc / Δdutch@0.01 for the tempered models (raw deltas in leaderboard.json). Unstressed = "
@@ -172,7 +195,7 @@ def main(argv=None):
            "only where the context fits: decider ≤ long_16k, Julia-1 long_4k (8192 tokens), heads none (they read ≤ 2048 "
            "context tokens).", ""]
     sm = [m for m in full if m.endswith("-Tfit") and not _is_api(m)]
-    md += ["| transform | " + " | ".join(sm) + " |", "|---" * (len(sm) + 1) + "|"]
+    md += ["| transform | " + " | ".join(D(m) for m in sm) + " |", "|---" * (len(sm) + 1) + "|"]
     sman = json.load(open(STRESS_REL / "manifest.json"))
     excluded = sman.get("excluded_v1", {})
     J["stress_excluded_v1"] = excluded
@@ -201,7 +224,7 @@ def main(argv=None):
             A = aggregate(evaluate(si, sp, splits={"stress"})[0])
             B = aggregate(evaluate(bi, {i: P[i] for i in bi if i in P}, splits={"test", "heldout"})[0])
             dd = {k: (None if A.get(k) is None or B.get(k) is None else A[k] - B[k]) for k in DELTA}
-            J["stress"][t][m] = {"n": len(si), "delta": dd, "stressed": A, "unstressed": B}
+            J["stress"][t][D(m)] = {"n": len(si), "delta": dd, "stressed": A, "unstressed": B}
             f = lambda x: "–" if x is None else f"{x:+.3f}"
             cells[m] = f"{f(dd['skill'])} / {f(dd['acc'])} / {f(dd['dutch@0.01'])}"
         md.append(f"| {STRESS_LABEL.get(t, t)} | " + " | ".join(cells.get(m, "–") for m in sm) + " |")
@@ -215,7 +238,7 @@ def main(argv=None):
     if excluded:
         md.append("_Excluded from v1 (data/release/stress/manifest.json `excluded_v1`), not shown: " + ", ".join(sorted(excluded)) + "._")
         md.append("")
-    nost = [m for m in sm if m.removesuffix("-Tfit") in NO_STRESS and not any(m in J["stress"][t] for t in J["stress"])]
+    nost = [D(m) for m in sm if m.removesuffix("-Tfit") in NO_STRESS and not any(D(m) in J["stress"][t] for t in J["stress"])]
     if nost:
         md.append("_" + ", ".join(nost) + ": not run on stress (added after the stress runs); their cells are –._")
         md.append("")
@@ -229,14 +252,14 @@ def main(argv=None):
                         reps[pm].get("by_group", {}).get(g) is not None and x.get("split") in {"test", "test_prior", "heldout", "val", "dev"}}
                 if not inst:
                     continue
-                rows = [(m, aggregate(evaluate(inst, {i: v for i, v in _preds(cache, m).items() if i in inst})[0])) for m in models]
+                rows = [(D(m), aggregate(evaluate(inst, {i: v for i, v in _preds(cache, m).items() if i in inst})[0])) for m in models]
                 md += [f"### {g} ({len(inst)} instances)", "", markdown_table(rows, COLS, "model"), ""]
     md += ["## runs", "", "| model | part | rows | seconds | rows/s | notes |", "|---|---|---|---|---|---|"]
     for m in models:
         for f in sorted((REL / m).glob("run_info__*.json")) + sorted((REL / m / "stress").glob("run_info__*.json")):
             s = json.load(open(f))["summary"]
             note = {k: s[k] for k in ("temperature", "mode", "truncated_frac", "missing_letter_frac", "parse_failures") if k in s}
-            md.append(f"| {m} | {f.parent.name if f.parent.name == 'stress' else f.stem[10:]} | {s.get('rows')} | "
+            md.append(f"| {D(m)} | {f.parent.name if f.parent.name == 'stress' else f.stem[10:]} | {s.get('rows')} | "
                       f"{s.get('seconds')} | {s.get('rows_per_s')} | {note} |")
     md += [""] + [f"_note: {n}_" for n in notes]
     Path(a.out).write_text("\n".join(md) + "\n")

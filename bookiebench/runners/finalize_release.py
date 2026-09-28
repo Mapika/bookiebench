@@ -26,7 +26,7 @@ SUB = REL / "_data" / "sub"   # instances for the joint rule of temper.apply (jo
 T0 = {"Qwen3.5-4B-Base": 1.0949506966709828, "Qwen3.5-9B-Base": 1.3079565733946328,
       "gemma-4-12B": 1.0525045024081028, "Qwen3.8-27B": 1.0574877202165875}
 NATIVE = ["decider-0.8b", "decider-2b", "decider-4b", "decider-35b-a3b", "Julia-1", "heads-p3-joint-r50-kd",
-          "heads-p3-indep-r50-kd", "heads-joint-2b-lr3e6", "heads-indep-2b-lr3e6", "heads-hybrid-2b",
+          "heads-p3-indep-r50-kd", "heads-joint-2b-lr3e6", "heads-indep-2b-lr3e6", "heads-hybrid-2b", "heads-hybrid-2b-v11a",
           "heads-decider-product",
           "deepseek-v41-flash-logit", "deepseek-v41-flash-cot"]
 

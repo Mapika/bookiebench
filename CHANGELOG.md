@@ -2,6 +2,23 @@
 
 All notable changes to BookieBench are listed here. Versions follow semantic versioning.
 
+## [1.1.0] - 2026-09-28
+
+### Added
+- Leaderboard rows `heads-hybrid-2b-v1.1` (tempered and raw) in every group and realcoh table, and in the stress
+  table (no long_* cells, as for all heads), plus its tempering factor. This is the v1.1 hybrid: decider-2b +
+  coherent coupling + a sims-domain marginal adapter with a domain gate. A footnote under each group and realcoh
+  table describes it.
+- A link to the public v1.1 hybrid checkpoint,
+  [Mapika/decider-2b-coherent](https://huggingface.co/Mapika/decider-2b-coherent), in LEADERBOARD.md and README.
+- Synced runners: `leaderboard` (display names, excluded ablation dirs, v1.1 footnote) and `finalize_release`
+  (adds the v1.1 hybrid to the tempered models).
+
+### Changed
+- The earlier hybrid rows `heads-hybrid-2b` are renamed `heads-hybrid-2b-v1.0`. Their numbers are unchanged.
+
+No data files, checksums or metrics changed.
+
 ## [1.0.2] - 2026-09-27
 
 ### Changed

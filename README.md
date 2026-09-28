@@ -221,7 +221,8 @@ so even perfect probabilities are "wrong" about a third of the time.
 
 Model results are in [LEADERBOARD.md](LEADERBOARD.md). It scores every model on the same shared subset of the
 shipped files, reports tempered (`-Tfit`, one fitted temperature per model, never fitted on eval data) and raw rows,
-and gives per-group tables, realcoh split by decider-training overlap, and paired stress deltas.
+and gives per-group tables, realcoh split by decider-training overlap, and paired stress deltas. It also includes a coherent-by-construction
+baseline, [decider-2b-coherent](https://huggingface.co/Mapika/decider-2b-coherent) (`heads-hybrid-2b-v1.1`).
 
 ## Hidden test set (leaderboard)
 
